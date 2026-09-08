@@ -472,7 +472,8 @@
 const G = 9.81, RHO = 1.2;
 const RIDER_KIT_KG = 110; // rider + kit; vehicle mass comes from the active mode
 const NOMINATIM_DELAY_MS = 1100; // respects 1 req/sec usage policy
-const CT_CENTER = [-33.9249, 18.4241];
+const CT_CENTER = [-33.9249, 18.4241]; // fallback only — used until/unless geolocation resolves (see initMapCenter())
+let mapCenter = CT_CENTER; // where the map opens and what geocode()/autocompleteSearch() bias toward
 
 /* ---------- transport modes ----------
    E-skate defaults match the original validated model exactly
@@ -669,17 +670,25 @@ function band(gradePct) {
 }
 
 /* ---------- geocoding ----------
-   Biased to greater Cape Town (viewbox + bounded=1) and restricted to South
-   Africa so an ambiguous street name doesn't resolve to the wrong country. */
-const CT_VIEWBOX = '18.30,-33.75,18.75,-34.15'; // left,top,right,bottom
+   Biased to a box around mapCenter (viewbox + bounded=1) — mapCenter starts
+   at Cape Town as a fallback and is replaced by the user's real location on
+   load if geolocation succeeds (see initMapCenter()). No hardcoded city or
+   country string appended to the query, and no countrycodes filter — both
+   would actively break results for anyone who isn't in Cape Town/South
+   Africa, which defeats the point of making this dynamic. */
+function nominatimViewbox(center, d) {
+  const [lat, lon] = center;
+  return `${lon - d},${lat + d},${lon + d},${lat - d}`; // left,top,right,bottom
+}
+const BBOX_DEG = 0.4; // ~40-45km box, same scale as the original hardcoded Cape Town extent
 async function geocode(query) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1` +
-    `&countrycodes=za&viewbox=${CT_VIEWBOX}&bounded=1` +
-    `&q=${encodeURIComponent(query + ', Cape Town, South Africa')}`;
+    `&viewbox=${nominatimViewbox(mapCenter, BBOX_DEG)}&bounded=1` +
+    `&q=${encodeURIComponent(query)}`;
   const resp = await fetch(url, { headers: { 'Accept-Language': 'en' } });
   if (!resp.ok) throw new Error('Geocoding failed');
   const data = await resp.json();
-  if (!data.length) throw new Error(`Could not find "${query}" in greater Cape Town`);
+  if (!data.length) throw new Error(`Could not find "${query}" nearby`);
   return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
 }
 
@@ -711,9 +720,14 @@ function photonLabel(p) {
   return parts.filter(Boolean).join(', ');
 }
 
+function photonBBox(center, d) {
+  const [lat, lon] = center;
+  return `${lon - d},${lat - d},${lon + d},${lat + d}`; // west,south,east,north
+}
 async function autocompleteSearch(query, signal) {
-  const url = `https://photon.komoot.io/api/?limit=5&lat=${CT_CENTER[0]}&lon=${CT_CENTER[1]}` +
-    `&bbox=18.30,-34.15,18.75,-33.75&q=${encodeURIComponent(query)}`;
+  const [lat, lon] = mapCenter;
+  const url = `https://photon.komoot.io/api/?limit=5&lat=${lat}&lon=${lon}` +
+    `&bbox=${photonBBox(mapCenter, BBOX_DEG)}&q=${encodeURIComponent(query)}`;
   const resp = await fetch(url, { signal });
   if (!resp.ok) throw new Error('Autocomplete lookup failed');
   const data = await resp.json();
@@ -1258,7 +1272,7 @@ function applyResult(v, pts, elev, cum, totalWh, totalClimb, usableWh, mode, seg
 
 function ensureMap() {
   if (map) return map;
-  map = L.map('map', { zoomControl: false }).setView(CT_CENTER, 13);
+  map = L.map('map', { zoomControl: false }).setView(mapCenter, 13);
   L.control.zoom({ position: 'topright' }).addTo(map);
   // Standard OSM raster tiles — free, keyless, no usage cap beyond the
   // published tile policy. CARTO's dark_all basemap looked identical but
@@ -1719,7 +1733,27 @@ $('legalMini').addEventListener('click', () => {
   applyLegal();
 });
 
+// Quietly try to centre the map (and bias geocode()/autocompleteSearch())
+// on the user's actual location instead of the hardcoded Cape Town
+// fallback. Low accuracy and a 5-minute maximumAge are fine here — this is
+// just "what area is this person in", not a precise fix — unlike the
+// explicit "Use my location" button, which stays high-accuracy and fresh.
+// Failure (denied/unavailable) is silent: the app already works fine on
+// the Cape Town default, so there's nothing to interrupt the user with.
+function initMapCenter() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      mapCenter = [pos.coords.latitude, pos.coords.longitude];
+      if (map) map.setView(mapCenter, 13);
+    },
+    () => { /* keep the Cape Town default */ },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 }
+  );
+}
+
 ensureMap();
+initMapCenter();
 renderStops();
 renderPresets();
 renderTrips();
