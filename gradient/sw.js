@@ -6,7 +6,7 @@
 // Bump this whenever app-shell files (index.html, this file) change, so
 // clients running an old service worker pick up the new version instead of
 // silently serving stale JS from cache-first.
-const STATIC_CACHE = 'gradient-static-v8';
+const STATIC_CACHE = 'gradient-static-v9';
 const TERRAIN_CACHE = 'gradient-terrain-v1';
 
 const STATIC_ASSETS = [

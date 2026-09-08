@@ -782,7 +782,11 @@ function setStatus(msg, isErr) {
 }
 
 /* ---------- stops (origin, any number of waypoints, destination) ---------- */
-let stops = [{ value: '' }, { value: '' }];
+// coords, when set, is an exact [lat, lon] fix (from geolocation or a saved
+// preset) that bypasses geocode() entirely at plan time — text geocoding is
+// approximate and would otherwise throw away GPS precision. Typing into the
+// field invalidates it, since the text no longer necessarily matches.
+let stops = [{ value: '', coords: null }, { value: '', coords: null }];
 let activeStopIndex = 0;
 
 function stopIcon(i, n) {
@@ -815,7 +819,7 @@ function renderStops() {
 
   rows.querySelectorAll('.stopInput').forEach((input, i) => {
     input.value = stops[i].value;
-    input.addEventListener('input', (e) => { stops[i].value = e.target.value; });
+    input.addEventListener('input', (e) => { stops[i].value = e.target.value; stops[i].coords = null; });
     input.addEventListener('focus', () => {
       activeStopIndex = i;
       input.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -848,7 +852,7 @@ function positionRail() {
 }
 
 $('addStopBtn').addEventListener('click', () => {
-  stops.splice(stops.length - 1, 0, { value: '' });
+  stops.splice(stops.length - 1, 0, { value: '', coords: null });
   renderStops();
   const inputs = document.querySelectorAll('.stopInput');
   if (inputs[stops.length - 2]) inputs[stops.length - 2].focus();
@@ -876,7 +880,9 @@ function saveStopAsPreset(idx) {
   const label = window.prompt('Save this place as:', suggested);
   if (!label) return;
   const list = loadPresets();
-  list.push({ id: Date.now() + Math.random(), label: label.trim(), query: val });
+  // Carry the exact fix along if this stop was set via geolocation, so
+  // re-selecting the saved place later skips fuzzy text geocoding too.
+  list.push({ id: Date.now() + Math.random(), label: label.trim(), query: val, coords: stops[idx].coords || null });
   savePresets(list);
   renderPresets();
 }
@@ -902,6 +908,7 @@ function renderPresets() {
       const p = list.find((x) => String(x.id) === chip.dataset.id);
       if (!p) return;
       stops[activeStopIndex].value = p.query;
+      stops[activeStopIndex].coords = p.coords || null;
       renderStops();
       const inputs = document.querySelectorAll('.stopInput');
       if (inputs[activeStopIndex]) inputs[activeStopIndex].focus();
@@ -986,7 +993,7 @@ function renderTrips() {
 // Redraws a saved trip with no network access at all — same rendering path
 // a live plan uses, fed from stored data instead of fresh API responses.
 function loadTrip(t) {
-  stops = t.queries.map((q) => ({ value: q }));
+  stops = t.queries.map((q, i) => ({ value: q, coords: t.coords ? t.coords[i] : null }));
   activeStopIndex = 0;
   renderStops();
   if (MODES[t.modeId]) selectMode(t.modeId, true);
@@ -1104,6 +1111,18 @@ $('locateFab').addEventListener('click', () => {
   locateInto(0, true);
 });
 
+let locateMarker = null, locateAccuracyCircle = null;
+
+function geoErrorMessage(err) {
+  // GeolocationPositionError codes: 1 PERMISSION_DENIED, 2 POSITION_UNAVAILABLE, 3 TIMEOUT
+  switch (err && err.code) {
+    case 1: return 'Location permission denied — allow it for this site in your browser settings and try again.';
+    case 2: return "Your device couldn't determine a position (no GPS/Wi-Fi fix available).";
+    case 3: return 'Location request timed out — try again, ideally with a clearer view of the sky or on Wi-Fi.';
+    default: return 'Could not get your location.';
+  }
+}
+
 function locateInto(idx, panMap) {
   if (!navigator.geolocation) {
     setStatus('Geolocation is not available in this browser.', true);
@@ -1112,18 +1131,42 @@ function locateInto(idx, panMap) {
   setStatus('Finding your location…');
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
-      const { latitude, longitude } = pos.coords;
-      if (panMap) ensureMap().setView([latitude, longitude], 15);
+      const { latitude, longitude, accuracy } = pos.coords;
+      // Store the exact fix — used directly at plan time instead of being
+      // re-geocoded from text, which would throw away this precision.
+      stops[idx].coords = [latitude, longitude];
+
+      if (panMap) {
+        const m = ensureMap();
+        m.setView([latitude, longitude], 16);
+        if (locateMarker) locateMarker.remove();
+        if (locateAccuracyCircle) locateAccuracyCircle.remove();
+        locateMarker = L.circleMarker([latitude, longitude], {
+          radius: 8, color: '#d6ff3f', weight: 2, fillColor: '#d6ff3f', fillOpacity: 0.35
+        }).addTo(m);
+        // A visible accuracy radius (metres -> map units via a real circle,
+        // not the marker's pixel radius) so a bad fix is visible, not just implied.
+        locateAccuracyCircle = L.circle([latitude, longitude], {
+          radius: accuracy, color: '#d6ff3f', weight: 1, fillOpacity: 0.06, dashArray: '4 4'
+        }).addTo(m);
+      }
+
       try {
         stops[idx].value = await reverseGeocode(latitude, longitude);
       } catch (err) {
         stops[idx].value = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
       }
       renderStops();
-      setStatus('');
+
+      const precision = accuracy != null ? `±${Math.round(accuracy)} m` : 'unknown precision';
+      setStatus(
+        accuracy != null && accuracy > 200
+          ? `Located, but accuracy is low (${precision}) — check the pin/address before planning.`
+          : `Located to ${precision}.`
+      );
     },
-    () => setStatus('Could not get your location — check browser permissions.', true),
-    { enableHighAccuracy: true, timeout: 10000 }
+    (err) => setStatus(geoErrorMessage(err), true),
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
@@ -1147,9 +1190,17 @@ $('planForm').addEventListener('submit', async (e) => {
     const usableWh = capWh * phys.usable;
     const mass = RIDER_KIT_KG + phys.vehicleKg;
 
-    // Geocode every stop in order, respecting Nominatim's 1 req/sec policy.
+    // Geocode every stop in order, respecting Nominatim's 1 req/sec policy —
+    // except stops with an exact fix (from geolocation or a saved preset
+    // captured from one), which skip text geocoding entirely and use that
+    // fix directly. Re-deriving coordinates from reverse-geocoded text would
+    // throw away GPS precision for no reason.
     const coords = [];
     for (let i = 0; i < queries.length; i++) {
+      if (stops[i] && stops[i].coords) {
+        coords.push(stops[i].coords);
+        continue;
+      }
       setStatus(`Geocoding stop ${i + 1} of ${queries.length}…`);
       coords.push(await geocode(queries[i]));
       if (i < queries.length - 1) await new Promise((r) => setTimeout(r, NOMINATIM_DELAY_MS));
