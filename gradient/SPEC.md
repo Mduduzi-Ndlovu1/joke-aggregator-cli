@@ -57,7 +57,8 @@ address strings
 
 | Service | Endpoint | Key | Notes |
 |---|---|---|---|
-| Geocoding | `nominatim.openstreetmap.org` | none | 1 req/sec ceiling; usage policy forbids production load |
+| Geocoding | `nominatim.openstreetmap.org` | none | 1 req/sec ceiling; usage policy forbids production load. Used at plan time and for stops without a saved coords fix |
+| Autocomplete | `photon.komoot.io` | none | real prefix matching (Nominatim's /search doesn't reliably prefix-match — confirmed by hand: "Tyger" → 5 results, "Tygerb" → 0, full word → 2 again). Debounced 450ms, throttled 500ms between requests |
 | Routing | `routing.openstreetmap.de/routed-bike` | none | primary; no uptime guarantee |
 | Routing fallback | `router.project-osrm.org` | none | driving profile only |
 | Elevation | `api.open-meteo.com/v1/elevation` | none | 30 m DEM, CORS enabled |

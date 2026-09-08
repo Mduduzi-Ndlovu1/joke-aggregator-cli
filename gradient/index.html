@@ -279,6 +279,17 @@
   .recenter-fab{color:var(--volt-ink);background:var(--volt);border-color:var(--volt);}
   .recenter-fab:hover{color:var(--volt-ink);border-color:var(--volt);filter:brightness(1.08);}
 
+  .ac-list{position:fixed;z-index:40;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius-card);box-shadow:var(--shadow);overflow:hidden;max-height:240px;overflow-y:auto;}
+  .ac-item{display:flex;align-items:flex-start;gap:8px;padding:9px 11px;cursor:pointer;
+    font-size:.82rem;color:var(--ink);line-height:1.35;border-bottom:1px solid var(--border);}
+  .ac-item:last-child{border-bottom:none;}
+  .ac-item svg{flex:none;width:14px;height:14px;fill:var(--dim);margin-top:2px;}
+  .ac-item:hover, .ac-item.active{background:var(--surface-2);}
+  .ac-item.active{color:var(--volt);}
+  .ac-item.active svg{fill:var(--volt);}
+  .ac-empty{padding:10px 11px;font-size:.78rem;color:var(--dim);}
+
   .tracker{margin-bottom:14px;}
   .trackbtn{width:100%;padding:11px;border-radius:var(--radius-card);border:1px solid var(--volt);
     background:transparent;color:var(--volt);font-weight:700;font-size:.8rem;letter-spacing:.08em;
@@ -344,6 +355,8 @@
 <button type="button" class="locate-fab recenter-fab hidden" id="recenterFab" aria-label="Re-center on live position" title="Re-center">
   <svg viewBox="0 0 24 24"><path d="M12 2 4 21l8-4.5L20 21 12 2z"/></svg>
 </button>
+
+<div class="ac-list hidden" id="acList" role="listbox"></div>
 
 <div class="panel" id="panel">
   <button type="button" class="grabber" id="sheetGrab" aria-expanded="false" aria-controls="panelScroll" aria-label="Expand route panel"><span aria-hidden="true"></span></button>
@@ -678,6 +691,41 @@ async function reverseGeocode(lat, lon) {
   return data.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
 }
 
+// Type-ahead suggestions via Photon (photon.komoot.io) — free, keyless,
+// CORS-open, and unlike Nominatim's /search (used for geocode() below) it
+// does real prefix matching: "Tygerb" mid-word returns results, where
+// Nominatim's tokenized full-word search returns nothing until the word is
+// complete. Confirmed by hand before wiring this in — Nominatim gave 5
+// results for "Tyger", 0 for "Tygerb"/"Tygerber", then 2 again for the full
+// "Tygerberg", which would make the dropdown flicker empty mid-word.
+// Each result carries its own lat/lon, so picking one sets an exact coords
+// fix on the stop (same mechanism as geolocation/presets) — no fuzzy
+// re-geocoding of typed text at plan time.
+function photonLabel(p) {
+  const parts = [p.name];
+  if (p.housenumber && p.street) parts.push(`${p.street} ${p.housenumber}`);
+  else if (p.street) parts.push(p.street);
+  const locality = p.city || p.district || p.county;
+  if (locality && locality !== p.name) parts.push(locality);
+  if (p.state) parts.push(p.state);
+  return parts.filter(Boolean).join(', ');
+}
+
+async function autocompleteSearch(query, signal) {
+  const url = `https://photon.komoot.io/api/?limit=5&lat=${CT_CENTER[0]}&lon=${CT_CENTER[1]}` +
+    `&bbox=18.30,-34.15,18.75,-33.75&q=${encodeURIComponent(query)}`;
+  const resp = await fetch(url, { signal });
+  if (!resp.ok) throw new Error('Autocomplete lookup failed');
+  const data = await resp.json();
+  return data.features
+    .filter((f) => f.properties.name) // unnamed features (bare address points) make poor suggestions
+    .map((f) => ({
+      label: photonLabel(f.properties),
+      lat: f.geometry.coordinates[1],
+      lon: f.geometry.coordinates[0]
+    }));
+}
+
 /* ---------- routing ---------- */
 async function route(a, b) {
   const coordStr = `${a[1]},${a[0]};${b[1]},${b[0]}`;
@@ -838,13 +886,138 @@ function stopPlaceholder(i, n) {
   return `Add stop ${i}`;
 }
 
+/* ---------- address autocomplete ----------
+   Debounced + throttled against Photon's public instance (see
+   autocompleteSearch() above) — a request only fires 450ms after typing
+   stops, and even then waits out any remainder of a 500ms window since the
+   last real request. Photon is built for exactly this rapid-fire use case,
+   unlike Nominatim's documented 1 req/sec ceiling (used for geocode()
+   instead), so the interval is shorter but still throttled, not unbounded. */
+const AC_MIN_CHARS = 3;
+const AC_DEBOUNCE_MS = 450;
+const AC_MIN_INTERVAL_MS = 500;
+
+let acState = { idx: null, results: [], activeIndex: -1, controller: null, timer: null, lastFetchAt: 0 };
+
+function scheduleAutocomplete(idx, input) {
+  clearTimeout(acState.timer);
+  const query = input.value.trim();
+  if (query.length < AC_MIN_CHARS) { hideAcList(); return; }
+  acState.timer = setTimeout(() => runAutocomplete(idx, query, input), AC_DEBOUNCE_MS);
+}
+
+async function runAutocomplete(idx, query, input) {
+  const wait = AC_MIN_INTERVAL_MS - (Date.now() - acState.lastFetchAt);
+  if (wait > 0) {
+    acState.timer = setTimeout(() => runAutocomplete(idx, query, input), wait);
+    return;
+  }
+  if (acState.controller) acState.controller.abort();
+  const controller = new AbortController();
+  acState.controller = controller;
+  acState.lastFetchAt = Date.now();
+
+  try {
+    const results = await autocompleteSearch(query, controller.signal);
+    if (controller.signal.aborted) return;
+    // The field may have moved on to different text while this was in
+    // flight (fast typer) — only render if it's still current.
+    if (!stops[idx] || stops[idx].value.trim() !== query) return;
+    showAcList(idx, input, results);
+  } catch (err) {
+    if (err.name !== 'AbortError') hideAcList();
+  }
+}
+
+function showAcList(idx, input, results) {
+  acState.idx = idx;
+  acState.results = results;
+  acState.activeIndex = -1;
+  const box = $('acList');
+  if (!results.length) {
+    box.innerHTML = '<div class="ac-empty">No matches nearby</div>';
+  } else {
+    box.innerHTML = results.map((r, i) => `
+      <div class="ac-item" data-i="${i}" role="option">
+        <svg viewBox="0 0 24 24"><path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.62 6.5 12 7.09 12.56a.55.55 0 00.82 0C13 21.5 19.5 15.12 19.5 9.5 19.5 5.36 16.14 2 12 2zm0 10.25A2.75 2.75 0 1112 6.75a2.75 2.75 0 010 5.5z"/></svg>
+        <span>${r.label}</span>
+      </div>
+    `).join('');
+    box.querySelectorAll('.ac-item').forEach((el) => {
+      // mousedown, not click — fires before the input's blur handler hides
+      // the list, so the selection lands before the row disappears.
+      el.addEventListener('mousedown', (e) => { e.preventDefault(); selectAcItem(Number(el.dataset.i)); });
+    });
+  }
+  positionAcList(input);
+  box.classList.remove('hidden');
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function positionAcList(input) {
+  const r = input.getBoundingClientRect();
+  const box = $('acList');
+  box.style.left = r.left + 'px';
+  box.style.top = (r.bottom + 4) + 'px';
+  box.style.width = r.width + 'px';
+}
+
+function hideAcList() {
+  const box = $('acList');
+  box.classList.add('hidden');
+  box.innerHTML = '';
+  document.querySelectorAll('.stopInput').forEach((el) => el.setAttribute('aria-expanded', 'false'));
+  acState.idx = null; acState.results = []; acState.activeIndex = -1;
+}
+
+function selectAcItem(i) {
+  const r = acState.results[i];
+  const idx = acState.idx;
+  if (!r || idx == null || !stops[idx]) return;
+  stops[idx].value = r.label;
+  stops[idx].coords = [r.lat, r.lon];
+  const input = document.querySelector(`.stopInput[data-idx="${idx}"]`);
+  if (input) input.value = r.label;
+  hideAcList();
+}
+
+function acHandleKeydown(e, idx, input) {
+  if ($('acList').classList.contains('hidden') || acState.idx !== idx) return;
+  const items = $('acList').querySelectorAll('.ac-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acState.activeIndex = Math.min(acState.activeIndex + 1, items.length - 1);
+    acHighlight(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acState.activeIndex = Math.max(acState.activeIndex - 1, 0);
+    acHighlight(items);
+  } else if (e.key === 'Enter') {
+    if (acState.activeIndex >= 0) {
+      e.preventDefault();
+      selectAcItem(acState.activeIndex);
+    }
+  } else if (e.key === 'Escape') {
+    hideAcList();
+  }
+}
+
+function acHighlight(items) {
+  items.forEach((el, i) => el.classList.toggle('active', i === acState.activeIndex));
+  const active = items[acState.activeIndex];
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
 function renderStops() {
+  hideAcList();
   const n = stops.length;
   const rows = $('stopRows');
   rows.innerHTML = stops.map((s, i) => `
     <div class="searchrow">
       ${stopIcon(i, n)}
-      <input type="text" data-idx="${i}" class="stopInput" placeholder="${stopPlaceholder(i, n)}" autocomplete="off" required>
+      <input type="text" data-idx="${i}" class="stopInput" placeholder="${stopPlaceholder(i, n)}" autocomplete="off" required
+        role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="acList">
       <button type="button" class="rowbtn save" data-idx="${i}" aria-label="Save this place" title="Save this place">
         <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
       </button>
@@ -856,11 +1029,19 @@ function renderStops() {
 
   rows.querySelectorAll('.stopInput').forEach((input, i) => {
     input.value = stops[i].value;
-    input.addEventListener('input', (e) => { stops[i].value = e.target.value; stops[i].coords = null; });
+    input.addEventListener('input', (e) => {
+      stops[i].value = e.target.value;
+      stops[i].coords = null;
+      scheduleAutocomplete(i, input);
+    });
     input.addEventListener('focus', () => {
       activeStopIndex = i;
       input.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
+    input.addEventListener('keydown', (e) => acHandleKeydown(e, i, input));
+    // Delay so a click on a suggestion (which blurs the input first) still
+    // registers before the list disappears.
+    input.addEventListener('blur', () => { setTimeout(() => hideAcList(), 150); });
   });
   rows.querySelectorAll('.rowbtn.save').forEach((btn) => {
     btn.addEventListener('click', () => saveStopAsPreset(Number(btn.dataset.idx)));
@@ -1174,12 +1355,22 @@ function onTrackUpdate(pos) {
     radius: accuracy, color: '#1a73e8', weight: 1, fillOpacity: 0.08
   }).addTo(m);
 
-  if (tracking.following) m.setView(latlng, Math.max(m.getZoom(), 16));
-
   const { distAlong, offRoute } = nearestOnLine(latlng, currentRoute.line, currentRoute.lineCum);
   const totalDist = currentRoute.lineCum[currentRoute.lineCum.length - 1] || 1;
   const pct = Math.min(100, Math.max(0, (distAlong / totalDist) * 100));
   const remainingM = Math.max(0, totalDist - distAlong);
+
+  if (tracking.following) {
+    // Far from the route (testing away from it, or genuinely lost) — show
+    // both the live position AND the road, so there's something to
+    // navigate back toward, instead of zooming into an empty spot with a
+    // lone dot and no road in sight.
+    if (offRoute > 300) {
+      m.fitBounds(L.latLngBounds([...currentRoute.line, latlng]), { padding: [40, 40] });
+    } else {
+      m.setView(latlng, Math.max(m.getZoom(), 16));
+    }
+  }
 
   $('trackPct').textContent = pct.toFixed(0) + '%';
   $('trackRemaining').textContent = (remainingM / 1000).toFixed(1) + ' km';
@@ -1537,6 +1728,8 @@ maybeShowOnboard();
 applyLegal();
 updateNetBadge();
 window.addEventListener('resize', positionRail);
+window.addEventListener('resize', hideAcList);
+$('panelScroll').addEventListener('scroll', hideAcList);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

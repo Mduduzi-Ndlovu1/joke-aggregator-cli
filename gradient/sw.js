@@ -6,7 +6,7 @@
 // Bump this whenever app-shell files (index.html, this file) change, so
 // clients running an old service worker pick up the new version instead of
 // silently serving stale JS from cache-first.
-const STATIC_CACHE = 'gradient-static-v10';
+const STATIC_CACHE = 'gradient-static-v12';
 const TERRAIN_CACHE = 'gradient-terrain-v1';
 
 const STATIC_ASSETS = [
@@ -43,7 +43,8 @@ function isNeverCache(url) {
   return (
     url.hostname.includes('nominatim.openstreetmap.org') ||
     url.hostname.includes('routing.openstreetmap.de') ||
-    url.hostname.includes('router.project-osrm.org')
+    url.hostname.includes('router.project-osrm.org') ||
+    url.hostname.includes('photon.komoot.io')
   );
 }
 
