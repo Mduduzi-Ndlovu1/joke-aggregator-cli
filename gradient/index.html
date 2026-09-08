@@ -276,6 +276,22 @@
     border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dim);}
   .locate-fab svg{width:20px;height:20px;fill:currentColor;}
   .locate-fab:hover{color:var(--volt);border-color:var(--volt);}
+  .recenter-fab{color:var(--volt-ink);background:var(--volt);border-color:var(--volt);}
+  .recenter-fab:hover{color:var(--volt-ink);border-color:var(--volt);filter:brightness(1.08);}
+
+  .tracker{margin-bottom:14px;}
+  .trackbtn{width:100%;padding:11px;border-radius:var(--radius-card);border:1px solid var(--volt);
+    background:transparent;color:var(--volt);font-weight:700;font-size:.8rem;letter-spacing:.08em;
+    text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    gap:8px;font-family:inherit;}
+  .trackbtn svg{width:15px;height:15px;fill:currentColor;}
+  .trackbtn:hover{background:rgba(214,255,63,.08);}
+  .trackbtn.active{background:var(--volt);color:var(--volt-ink);}
+  .trackstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+  .trackstats .stat{padding:8px 9px;}
+  .trackstats .v{font-size:.95rem;}
+  .trackmsg{font-size:.72rem;color:var(--dim);margin-top:6px;min-height:1.1em;}
+  .trackmsg.warn{color:var(--amber);}
 
   .origin-dot{width:14px;height:14px;border-radius:50%;background:var(--volt);border:2px solid #10140a;
     box-shadow:0 0 0 2px var(--volt), 0 0 10px rgba(214,255,63,.7);}
@@ -296,12 +312,14 @@
     .grabber:active span{background:var(--volt);}
     .panel-scroll{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
     .locate-fab{right:12px;bottom:calc(164px + env(safe-area-inset-bottom));z-index:9;}
+    .recenter-fab{right:12px;bottom:calc(216px + env(safe-area-inset-bottom));z-index:9;}
     .onboard{padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
     .brand{padding:6px 16px 10px;}
     .stats{grid-template-columns:repeat(2,1fr);}
   }
   @media (min-width:641px){
     .locate-fab{left:12px;bottom:12px;}
+    .recenter-fab{left:12px;bottom:64px;}
   }
 </style>
 </head>
@@ -321,6 +339,10 @@
 
 <button type="button" class="locate-fab" id="locateFab" aria-label="Use my location" title="Use my location">
   <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
+</button>
+
+<button type="button" class="locate-fab recenter-fab hidden" id="recenterFab" aria-label="Re-center on live position" title="Re-center">
+  <svg viewBox="0 0 24 24"><path d="M12 2 4 21l8-4.5L20 21 12 2z"/></svg>
 </button>
 
 <div class="panel" id="panel">
@@ -387,6 +409,19 @@
         <div class="stat"><div class="v" id="statClimb">—</div><div class="k">Total climb</div></div>
         <div class="stat"><div class="v" id="statWh">—</div><div class="k" id="statWhK">Energy used</div></div>
         <div class="stat"><div class="v" id="statPct">—</div><div class="k" id="statPctK">Of usable battery</div></div>
+      </div>
+
+      <div class="tracker">
+        <button type="button" class="trackbtn" id="trackBtn">
+          <svg viewBox="0 0 24 24" id="trackBtnIcon"><path d="M8 5v14l11-7z"/></svg>
+          <span id="trackBtnLabel">Start live tracking</span>
+        </button>
+        <div class="trackstats hidden" id="trackStats">
+          <div class="stat"><div class="v" id="trackPct">0%</div><div class="k">Progress</div></div>
+          <div class="stat"><div class="v" id="trackRemaining">—</div><div class="k">Remaining</div></div>
+          <div class="stat"><div class="v" id="trackAcc">—</div><div class="k">GPS accuracy</div></div>
+        </div>
+        <div class="trackmsg" id="trackMsg" role="status" aria-live="polite"></div>
       </div>
 
       <p class="sectionlabel">Terrain profile</p>
@@ -773,6 +808,8 @@ function verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit, mode) {
 /* ---------- UI wiring ---------- */
 const $ = (id) => document.getElementById(id);
 let map, routeLayer, stopMarkers = [];
+let currentRoute = null; // {line, lineCum} of the route currently shown — what live tracking measures progress against
+let tracking = { watchId: null, marker: null, accCircle: null, following: true, lastLatLng: null };
 
 function setStatus(msg, isErr) {
   const el = $('status');
@@ -1030,6 +1067,12 @@ function applyResult(v, pts, elev, cum, totalWh, totalClimb, usableWh, mode, seg
     $('results').classList.remove('hidden');
     if (isMobileView()) setSheet(true);
   renderMap(segs, line, coords);
+
+  // A fresh plan or a loaded trip both replace whatever route live tracking
+  // was following — stop any in-progress session before swapping the data
+  // out from under it.
+  stopTracking();
+  currentRoute = { line, lineCum: cumulative(line) };
 }
 
 function ensureMap() {
@@ -1046,8 +1089,115 @@ function ensureMap() {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
+  // Panning away from the live marker while tracking means the rider wants
+  // to look around — stop auto-recentring until they ask to jump back.
+  map.on('dragstart', () => {
+    if (tracking.watchId != null && tracking.following) {
+      tracking.following = false;
+      $('recenterFab').classList.remove('hidden');
+    }
+  });
   return map;
 }
+
+/* ---------- live tracking ----------
+   watchPosition (not getCurrentPosition) — a continuous GPS stream, not a
+   one-shot fix. Progress is measured by nearest-vertex projection onto the
+   full-resolution route line already used for the road-hugging map render,
+   so it's consistent with what's drawn rather than a separate approximation. */
+function nearestOnLine(latlng, line, lineCum) {
+  let bestI = 0, bestD = Infinity;
+  for (let i = 0; i < line.length; i++) {
+    const d = haversine(latlng, line[i]);
+    if (d < bestD) { bestD = d; bestI = i; }
+  }
+  return { distAlong: lineCum[bestI], offRoute: bestD };
+}
+
+function setTrackMsg(msg, warn) {
+  const el = $('trackMsg');
+  el.textContent = msg;
+  el.className = 'trackmsg' + (warn ? ' warn' : '');
+}
+
+function startTracking() {
+  if (!currentRoute) return;
+  if (!navigator.geolocation) { setTrackMsg('Geolocation is not available in this browser.', true); return; }
+  tracking.following = true;
+  $('trackBtn').classList.add('active');
+  $('trackBtnLabel').textContent = 'Stop tracking';
+  $('trackStats').classList.remove('hidden');
+  setTrackMsg('Starting GPS tracking — this uses more battery than normal use.');
+  tracking.watchId = navigator.geolocation.watchPosition(onTrackUpdate, onTrackError, {
+    enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
+  });
+}
+
+function stopTracking() {
+  if (tracking.watchId != null) navigator.geolocation.clearWatch(tracking.watchId);
+  tracking.watchId = null;
+  tracking.following = true;
+  tracking.lastLatLng = null;
+  if (tracking.marker) { tracking.marker.remove(); tracking.marker = null; }
+  if (tracking.accCircle) { tracking.accCircle.remove(); tracking.accCircle = null; }
+  const btn = $('trackBtn');
+  if (btn) btn.classList.remove('active');
+  const label = $('trackBtnLabel');
+  if (label) label.textContent = 'Start live tracking';
+  const stats = $('trackStats');
+  if (stats) stats.classList.add('hidden');
+  const fab = $('recenterFab');
+  if (fab) fab.classList.add('hidden');
+  setTrackMsg('');
+}
+
+function onTrackError(err) {
+  setTrackMsg(geoErrorMessage(err), true);
+}
+
+function onTrackUpdate(pos) {
+  if (!currentRoute) return;
+  const { latitude, longitude, accuracy } = pos.coords;
+  const latlng = [latitude, longitude];
+  tracking.lastLatLng = latlng;
+  const m = ensureMap();
+
+  if (!tracking.marker) {
+    tracking.marker = L.circleMarker(latlng, {
+      radius: 8, color: '#fff', weight: 2, fillColor: '#1a73e8', fillOpacity: 0.95
+    }).addTo(m);
+  } else {
+    tracking.marker.setLatLng(latlng);
+  }
+  if (tracking.accCircle) tracking.accCircle.remove();
+  tracking.accCircle = L.circle(latlng, {
+    radius: accuracy, color: '#1a73e8', weight: 1, fillOpacity: 0.08
+  }).addTo(m);
+
+  if (tracking.following) m.setView(latlng, Math.max(m.getZoom(), 16));
+
+  const { distAlong, offRoute } = nearestOnLine(latlng, currentRoute.line, currentRoute.lineCum);
+  const totalDist = currentRoute.lineCum[currentRoute.lineCum.length - 1] || 1;
+  const pct = Math.min(100, Math.max(0, (distAlong / totalDist) * 100));
+  const remainingM = Math.max(0, totalDist - distAlong);
+
+  $('trackPct').textContent = pct.toFixed(0) + '%';
+  $('trackRemaining').textContent = (remainingM / 1000).toFixed(1) + ' km';
+  $('trackAcc').textContent = `±${Math.round(accuracy)} m`;
+
+  setTrackMsg(offRoute > 50 ? `${Math.round(offRoute)} m from the planned route.` : '', offRoute > 50);
+}
+
+$('trackBtn').addEventListener('click', () => {
+  if (tracking.watchId != null) stopTracking();
+  else startTracking();
+});
+
+$('recenterFab').addEventListener('click', () => {
+  tracking.following = true;
+  $('recenterFab').classList.add('hidden');
+  if (tracking.lastLatLng) ensureMap().setView(tracking.lastLatLng, Math.max(map.getZoom(), 16));
+});
 
 // Merge consecutive same-colour segments into one polyline each — the
 // underlying points still trace every vertex of the full-resolution route,
