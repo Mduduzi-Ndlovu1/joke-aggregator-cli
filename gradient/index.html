@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradient — skate route planner</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#131719">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root{
+    --surface:#131719; --surface-2:#1b2125; --surface-hover:#242c31;
+    --border:#2d353b; --ink:#edf2ef; --dim:#9aa8ad;
+    --blue:#d6ff3f; --blue-dark:#bfe633; --blue-tint:rgba(214,255,63,.12);
+    --green:#2fbf71; --green-tint:rgba(47,191,113,.14);
+    --amber:#ffb224; --amber-tint:rgba(255,178,36,.14);
+    --red:#ff5a52; --red-tint:rgba(255,90,82,.14);
+    --oxblood:#4a1420; --rust:#b5502e; --ochre:#c98a2c; --moss:#6b8f4e; --sage:#8fae7a;
+    --volt:#d6ff3f; --volt-ink:#10140a;
+    --shadow:0 8px 28px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.06) inset;
+    --radius-panel:16px; --radius-card:10px; --radius-pill:999px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:#0c0f10;color:var(--ink);
+    font-family:"Roboto",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;}
+  body{overflow:hidden;}
+  a{color:var(--volt);}
+
+  /* full-bleed night map — dark asphalt base so the volt UI + gradient route glow */
+  #map{position:fixed;inset:0;z-index:0;background:#0c0f10;}
+  #map .leaflet-tile-pane{filter:saturate(.9) contrast(1.05) brightness(.98);}
+  #map::after{content:"";position:absolute;inset:0;z-index:500;pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0,0,0,.42) 100%);}
+  .leaflet-control-zoom{box-shadow:var(--shadow) !important;border:1px solid var(--border) !important;border-radius:10px !important;overflow:hidden;}
+  .leaflet-control-zoom a{background:var(--surface-2) !important;color:var(--ink) !important;border-color:var(--border) !important;}
+  .leaflet-control-zoom a:hover{background:var(--surface-hover) !important;color:var(--volt) !important;}
+  .leaflet-control-attribution{font-size:10px;background:rgba(12,15,16,.85) !important;color:var(--dim) !important;}
+  .leaflet-control-attribution a{color:var(--dim) !important;}
+  .route-glow{filter:drop-shadow(0 0 6px rgba(0,0,0,.7));}
+  .route-casing{filter:drop-shadow(0 0 8px rgba(0,0,0,.8));}
+
+  .panel{
+    position:fixed;top:12px;left:12px;bottom:12px;width:400px;max-width:calc(100vw - 24px);
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-panel);box-shadow:var(--shadow);
+    z-index:10;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .panel::before{content:"";display:block;height:3px;background:var(--volt);
+    box-shadow:0 0 12px rgba(214,255,63,.55);}
+  .panel-scroll{overflow-y:auto;flex:1;scrollbar-color:var(--border) transparent;}
+
+  .brand{display:flex;align-items:center;gap:12px;padding:16px 16px 10px;}
+  .brand .dot{width:34px;height:34px;border-radius:10px;background:var(--volt);
+    display:flex;align-items:center;justify-content:center;flex:none;
+    box-shadow:0 0 0 1px rgba(214,255,63,.4), 0 0 16px rgba(214,255,63,.25);}
+  .brand .dot svg{width:19px;height:19px;fill:#10140a;}
+  .brand h1{margin:0;font-size:1.05rem;font-weight:700;color:var(--ink);letter-spacing:.14em;text-transform:uppercase;}
+  .brand p{margin:2px 0 0;font-size:.7rem;color:var(--dim);letter-spacing:.02em;text-transform:uppercase;}
+
+  form.plan{padding:4px 16px 12px;}
+
+  .searchbox{position:relative;padding:4px 0;}
+  .searchrow{display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-card);
+    margin-bottom:8px;padding:0 4px 0 12px;transition:border-color .15s, background .15s;}
+  .searchrow:focus-within{background:#20272c;border-color:var(--volt);box-shadow:0 0 0 1px var(--volt);}
+  .searchrow .marker{flex:none;width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
+  .searchrow input{flex:1;min-width:0;border:none;background:transparent;padding:11px 6px;font-size:.9rem;
+    font-family:inherit;color:var(--ink);outline:none;}
+  .searchrow input::placeholder{color:var(--dim);}
+
+  .waypoint-dot{width:9px;height:9px;border-radius:50%;border:2px solid var(--dim);background:transparent;}
+
+  .rail{position:absolute;left:21px;width:0;border-left:2px dotted #3d464c;}
+
+  .rowbtn{flex:none;width:28px;height:28px;border:none;background:transparent;border-radius:50%;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dim);}
+  .rowbtn:hover{background:var(--surface-hover);color:var(--ink);}
+  .rowbtn svg{width:15px;height:15px;fill:currentColor;}
+  .rowbtn.save.saved{color:#f9ab00;}
+  .rowbtn.save.saved svg{fill:#f9ab00;}
+
+  .add-stop{background:none;border:1px dashed var(--border);border-radius:var(--radius-card);cursor:pointer;color:var(--dim);font-size:.78rem;
+    font-family:inherit;font-weight:500;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:10px;padding:9px 10px 9px;width:100%;text-align:left;}
+  .add-stop:hover{color:var(--volt);border-color:var(--volt);}
+  .add-stop .plus{flex:none;width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
+  .add-stop svg{width:16px;height:16px;fill:currentColor;}
+
+  .swapbtn{position:absolute;right:8px;top:8px;width:36px;height:36px;border-radius:50%;
+    border:1px solid var(--border);background:var(--surface-2);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);color:var(--dim);}
+  .swapbtn:hover{background:var(--surface-hover);color:var(--volt);border-color:var(--volt);}
+  .swapbtn svg{width:16px;height:16px;fill:currentColor;}
+
+  .presets{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 10px;}
+  .preset-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 8px 6px 10px;
+    border:1px solid var(--border);border-radius:var(--radius-pill);font-size:.78rem;color:var(--ink);
+    background:var(--surface-2);cursor:pointer;}
+  .preset-chip:hover{border-color:var(--volt);}
+  .preset-chip svg{width:12px;height:12px;fill:var(--volt);}
+  .preset-chip .del{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;color:var(--dim);font-size:14px;}
+  .preset-chip .del:hover{background:var(--surface-hover);color:var(--red);}
+
+  .locatebtn{background:none;border:none;cursor:pointer;color:var(--volt);font-size:.78rem;
+    font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-family:inherit;display:inline-flex;align-items:center;gap:6px;
+    padding:6px 2px;margin:-2px 0 8px;}
+  .locatebtn svg{width:14px;height:14px;fill:currentColor;}
+  .locatebtn:hover{text-decoration:underline;}
+
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;}
+  .chip{flex:none;}
+  .chip input{position:absolute;opacity:0;pointer-events:none;}
+  .chip label{display:block;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-pill);
+    font-size:.78rem;color:var(--dim);cursor:pointer;white-space:nowrap;user-select:none;background:var(--surface-2);}
+  .chip label strong{color:var(--ink);font-weight:700;}
+  .chip input:checked + label{background:var(--volt);border-color:var(--volt);color:var(--volt-ink);font-weight:700;}
+  .chip input:checked + label strong{color:var(--volt-ink);}
+  .chip input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
+
+  button.go{
+    width:100%;padding:13px;border:none;border-radius:var(--radius-card);background:var(--volt);
+    color:var(--volt-ink);font-weight:700;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  button.go:disabled{opacity:.5;cursor:wait;}
+  button.go:hover:not(:disabled){background:var(--blue-dark);}
+  input:focus-visible, select:focus-visible, button:focus-visible{outline:2px solid var(--volt);outline-offset:2px;}
+
+  .status{font-size:.78rem;color:var(--dim);margin-top:8px;min-height:1.1em;}
+  .status.err{color:var(--red);}
+
+  .divider{height:1px;background:var(--border);margin:4px 16px;}
+
+  .results{padding:12px 16px 20px;}
+  .hidden{display:none !important;}
+
+  .verdict{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:var(--radius-card);margin-bottom:12px;border:1px solid var(--border);}
+  .verdict.ok{background:var(--green-tint);border-color:rgba(47,191,113,.4);}
+  .verdict.caution{background:var(--amber-tint);border-color:rgba(255,178,36,.4);}
+  .verdict.stop{background:var(--red-tint);border-color:rgba(255,90,82,.45);}
+  .verdict .badge{font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;
+    padding:3px 8px;border-radius:4px;white-space:nowrap;flex:none;margin-top:1px;}
+  .verdict.ok .badge{background:var(--green);color:#06130c;}
+  .verdict.caution .badge{background:var(--amber);color:#1a1200;}
+  .verdict.stop .badge{background:var(--red);color:#1c0605;}
+  .verdict p{margin:0;font-size:.83rem;line-height:1.45;color:var(--ink);}
+
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+  .stat{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--volt);border-radius:var(--radius-card);padding:10px 11px;}
+  .stat .v{font-size:1.1rem;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .stat .k{font-size:.66rem;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+
+  .sectionlabel{font-size:.68rem;color:var(--volt);text-transform:uppercase;letter-spacing:.14em;
+    font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px;}
+  .sectionlabel::after{content:"";flex:1;height:1px;background:var(--border);}
+
+  #profile{width:100%;height:130px;display:block;background:#0c0f10;border:1px solid var(--border);border-radius:var(--radius-card);}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:10px;font-size:.68rem;color:var(--dim);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);padding:3px 8px;border-radius:var(--radius-pill);}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  .legal{font-size:.7rem;line-height:1.5;color:var(--dim);padding:12px 16px 16px;border-top:1px solid var(--border);background:#101415;}
+  .legal strong{color:var(--ink);}
+
+  .locate-fab{position:fixed;z-index:10;width:42px;height:42px;border-radius:50%;background:var(--surface-2);
+    border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dim);}
+  .locate-fab svg{width:20px;height:20px;fill:currentColor;}
+  .locate-fab:hover{color:var(--volt);border-color:var(--volt);}
+
+  .origin-dot{width:14px;height:14px;border-radius:50%;background:var(--volt);border:2px solid #10140a;
+    box-shadow:0 0 0 2px var(--volt), 0 0 10px rgba(214,255,63,.7);}
+  .dest-pin{width:18px;height:18px;}
+
+  @media (max-width:640px){
+    .panel{top:0;left:0;right:0;bottom:auto;width:100%;max-width:100%;border-radius:0 0 var(--radius-panel) var(--radius-panel);
+      max-height:62vh;border-left:none;border-right:none;border-top:none;}
+    .locate-fab{right:12px;bottom:12px;}
+  }
+  @media (min-width:641px){
+    .locate-fab{left:12px;bottom:12px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<button type="button" class="locate-fab" id="locateFab" aria-label="Use my location" title="Use my location">
+  <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
+</button>
+
+<div class="panel">
+  <div class="panel-scroll">
+    <div class="brand">
+      <span class="dot" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>
+      </span>
+      <div>
+        <h1>Gradient</h1>
+        <p>E-skate route lab — climb / brake / range</p>
+      </div>
+    </div>
+
+    <form class="plan" id="planForm">
+      <div class="searchbox" id="searchbox">
+        <div class="rail" id="rail"></div>
+        <div id="stopRows"></div>
+        <button type="button" class="swapbtn" id="swapBtn" aria-label="Reverse stop order" title="Reverse stop order">
+          <svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3 1.4-1.4L21.8 8l-5.4 5.4L15 12l3-3H7V7zm10 10H6l3 3-1.4 1.4L2.2 16l5.4-5.4L9 12l-3 3h11v2z"/></svg>
+        </button>
+      </div>
+
+      <button type="button" class="add-stop" id="addStopBtn">
+        <span class="plus"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></span>
+        Add stop
+      </button>
+
+      <div class="presets" id="presets"></div>
+
+      <button type="button" class="locatebtn" id="locateBtn">
+        <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
+        Use my location
+      </button>
+
+      <p class="sectionlabel">Board // Powertrain</p>
+      <div class="chips" role="radiogroup" aria-label="Board">
+        <span class="chip">
+          <input type="radio" name="board" id="board1" value="336|30|12" checked>
+          <label for="board1">Journ-E Phantom · 336 Wh</label>
+        </span>
+        <span class="chip">
+          <input type="radio" name="board" id="board2" value="200|20|10">
+          <label for="board2">Budget single-motor · 200 Wh</label>
+        </span>
+        <span class="chip">
+          <input type="radio" name="board" id="board3" value="450|35|15">
+          <label for="board3">Off-road dual-motor · 450 Wh</label>
+        </span>
+      </div>
+
+      <button type="submit" class="go" id="planBtn">⚡ Plan route</button>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </form>
+
+    <div class="results hidden" id="results">
+      <div class="divider"></div>
+      <div class="verdict" id="verdict">
+        <span class="badge" id="verdictBadge"></span>
+        <p id="verdictText"></p>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="v" id="statDist">—</div><div class="k">Distance</div></div>
+        <div class="stat"><div class="v" id="statClimb">—</div><div class="k">Total climb</div></div>
+        <div class="stat"><div class="v" id="statWh">—</div><div class="k">Energy used</div></div>
+        <div class="stat"><div class="v" id="statPct">—</div><div class="k">Of usable battery</div></div>
+      </div>
+
+      <p class="sectionlabel">Terrain profile</p>
+      <svg id="profile" viewBox="0 0 900 180" preserveAspectRatio="none" role="img" aria-label="Elevation profile"></svg>
+
+      <div class="legend">
+        <span><i style="background:#4a1420"></i>past braking</span>
+        <span><i style="background:#b5502e"></i>steep descent / motor limit</span>
+        <span><i style="background:#c98a2c"></i>watch your speed / hard climb</span>
+        <span><i style="background:#6b8f4e"></i>easy going</span>
+        <span><i style="background:#8fae7a"></i>working climb</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="legal">
+    <strong>Legal note.</strong> Electric skateboards cannot legally be ridden on public roads or
+    pavements in South Africa — no registration category exists for a motorised skateboard under the
+    National Road Traffic Act 93 of 1996, and pavements form part of the public road reserve. Treat
+    this as planning for private property, estates, campuses and trails unless you've confirmed your
+    own legal position.
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+'use strict';
+
+/* ---------- constants ---------- */
+const G = 9.81, RHO = 1.2, CDA = 0.65, CRR = 0.02, EFF = 0.80, USABLE = 0.87;
+const RIDER_KIT_KG = 110; // rider + kit; board mass added per-board is negligible (~6.8kg) and folded in here
+const BOARD_KG = 6.8;
+const NOMINATIM_DELAY_MS = 1100; // respects 1 req/sec usage policy
+const CT_CENTER = [-33.9249, 18.4241];
+
+/* ---------- geometry ---------- */
+function haversine(a, b) {
+  const R = 6371000;
+  const [lat1, lon1] = a, [lat2, lon2] = b;
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const s = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+// Walks the polyline emitting a point every `step` metres, carrying the
+// remainder across vertices. Gaps are exactly `step` except the final
+// remainder point at the end of the line.
+function resample(coords, step) {
+  const out = [coords[0]];
+  let carry = 0;
+  for (let i = 1; i < coords.length; i++) {
+    let a = coords[i - 1], b = coords[i];
+    let segLen = haversine(a, b);
+    let pos = carry;
+    while (pos + step <= segLen) {
+      pos += step;
+      const t = pos / segLen;
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    }
+    carry = segLen - pos;
+  }
+  const last = coords[coords.length - 1];
+  const lastOut = out[out.length - 1];
+  if (!lastOut || haversine(lastOut, last) > 1) out.push(last);
+  return out;
+}
+
+/* ---------- elevation ---------- */
+async function elevations(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length; i += 100) {
+    const chunk = pts.slice(i, i + 100);
+    const lats = chunk.map((p) => p[0].toFixed(6)).join(',');
+    const lons = chunk.map((p) => p[1].toFixed(6)).join(',');
+    const url = `https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Elevation lookup failed');
+    const data = await resp.json();
+    out.push(...data.elevation);
+  }
+  return smooth3(out);
+}
+
+function smooth3(arr) {
+  if (arr.length < 3) return arr.slice();
+  const out = arr.slice();
+  for (let i = 1; i < arr.length - 1; i++) {
+    out[i] = (arr[i - 1] + arr[i] + arr[i + 1]) / 3;
+  }
+  return out;
+}
+
+/* ---------- physics ---------- */
+// distance in metres, grade as a fraction (0.06 = 6%), v in km/h
+function segWh(distance, grade, mass, vKmh) {
+  const v = vKmh / 3.6;
+  const fRoll = CRR * mass * G;
+  const fAir = 0.5 * RHO * CDA * v * v;
+  const fGrav = mass * G * Math.sin(Math.atan(grade));
+  const f = Math.max(0, fRoll + fAir + fGrav); // clamped: no regen credited
+  return (f * distance) / EFF / 3600;
+}
+
+/* ---------- gradient bands (deliberately asymmetric — see SPEC.md) ---------- */
+function band(gradePct) {
+  const g = gradePct;
+  if (g <= -12) return { c: '#4a1420', k: 'past braking' };
+  if (g <= -8)  return { c: '#b5502e', k: 'steep descent' };
+  if (g <= -4)  return { c: '#c98a2c', k: 'watch your speed' };
+  if (g < 4)    return { c: '#6b8f4e', k: 'easy going' };
+  if (g < 10)   return { c: '#8fae7a', k: 'working climb' };
+  if (g < 15)   return { c: '#c98a2c', k: 'hard climb' };
+  return          { c: '#b5502e', k: 'at the motor limit' };
+}
+
+/* ---------- geocoding ----------
+   Biased to greater Cape Town (viewbox + bounded=1) and restricted to South
+   Africa so an ambiguous street name doesn't resolve to the wrong country. */
+const CT_VIEWBOX = '18.30,-33.75,18.75,-34.15'; // left,top,right,bottom
+async function geocode(query) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1` +
+    `&countrycodes=za&viewbox=${CT_VIEWBOX}&bounded=1` +
+    `&q=${encodeURIComponent(query + ', Cape Town, South Africa')}`;
+  const resp = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+  if (!resp.ok) throw new Error('Geocoding failed');
+  const data = await resp.json();
+  if (!data.length) throw new Error(`Could not find "${query}" in greater Cape Town`);
+  return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+}
+
+async function reverseGeocode(lat, lon) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+  const resp = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+  if (!resp.ok) throw new Error('Reverse geocoding failed');
+  const data = await resp.json();
+  return data.display_name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+}
+
+/* ---------- routing ---------- */
+async function route(a, b) {
+  const coordStr = `${a[1]},${a[0]};${b[1]},${b[0]}`;
+  try {
+    const url = `https://routing.openstreetmap.de/routed-bike/route/v1/bike/${coordStr}?overview=full&geometries=geojson`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('primary router failed');
+    const data = await resp.json();
+    if (!data.routes || !data.routes.length) throw new Error('no route');
+    return data.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+  } catch (e) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Routing failed (both primary and fallback)');
+    const data = await resp.json();
+    if (!data.routes || !data.routes.length) throw new Error('No route found');
+    return data.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+  }
+}
+
+/* ---------- profile SVG ---------- */
+function profileSVG(pts, elev, cum) {
+  const W = 900, H = 180, pad = 4;
+  const minE = Math.min(...elev), maxE = Math.max(...elev);
+  const range = Math.max(1, maxE - minE);
+  const totalDist = cum[cum.length - 1] || 1;
+
+  const x = (d) => pad + (d / totalDist) * (W - 2 * pad);
+  const y = (e) => H - pad - ((e - minE) / range) * (H - 2 * pad);
+
+  let bars = '';
+  for (let i = 1; i < pts.length; i++) {
+    const grade = ((elev[i] - elev[i - 1]) / Math.max(1, cum[i] - cum[i - 1])) * 100;
+    const { c } = band(grade);
+    const x0 = x(cum[i - 1]), x1 = x(cum[i]);
+    bars += `<rect x="${x0.toFixed(1)}" y="0" width="${Math.max(1, x1 - x0).toFixed(1)}" height="${H}" fill="${c}" opacity="0.35"/>`;
+  }
+
+  let line = `M ${x(cum[0]).toFixed(1)} ${y(elev[0]).toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) {
+    line += ` L ${x(cum[i]).toFixed(1)} ${y(elev[i]).toFixed(1)}`;
+  }
+
+  return `${bars}<path d="${line}" fill="none" stroke="#edf2ef" stroke-width="2"/>`;
+}
+
+/* ---------- gradient -> route colouring on the map ----------
+   The map must hug the actual road geometry, not the coarser 50 m sample
+   points used for elevation. So we colour every sub-segment of the
+   full-resolution route line, looking up its grade by binary-searching the
+   distance-along-route into the resampled elevation profile. */
+function cumulative(line) {
+  const cum = [0];
+  for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + haversine(line[i - 1], line[i]));
+  return cum;
+}
+
+function gradeAt(dist, cum, elev) {
+  // binary search for the bracket [cum[i-1], cum[i]] containing `dist`
+  let lo = 1, hi = cum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (cum[mid] < dist) lo = mid + 1; else hi = mid;
+  }
+  const i = Math.min(lo, cum.length - 1);
+  const d = Math.max(1, cum[i] - cum[i - 1]);
+  return ((elev[i] - elev[i - 1]) / d) * 100;
+}
+
+function routeSegments(line, lineCum, pts, elev, cum) {
+  const segs = [];
+  for (let i = 1; i < line.length; i++) {
+    const mid = (lineCum[i - 1] + lineCum[i]) / 2;
+    const grade = gradeAt(mid, cum, elev);
+    segs.push({ a: line[i - 1], b: line[i], ...band(grade), grade });
+  }
+  return segs;
+}
+
+/* ---------- verdict ---------- */
+function verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit) {
+  const worstDescent = Math.min(0, ...segs.map((s) => s.grade));
+  const worstClimb = Math.max(0, ...segs.map((s) => s.grade));
+
+  if (Math.abs(worstDescent) >= brakeLimit) {
+    return {
+      level: 'stop',
+      badge: 'Stop',
+      text: `This route drops at up to ${Math.abs(worstDescent).toFixed(0)}%, past this board's ${brakeLimit}% braking limit. That's a braking problem, not an effort problem — worst right after a full charge, when electronic braking is weakest. Don't ride this leg unless you know it and can footbrake it.`
+    };
+  }
+  if (totalWh > usableWh) {
+    return {
+      level: 'stop',
+      badge: 'Stop',
+      text: `Estimated energy use (${totalWh.toFixed(0)} Wh) exceeds this board's usable capacity (${usableWh.toFixed(0)} Wh). You will not make this distance on one charge.`
+    };
+  }
+  if (worstClimb >= climbLimit) {
+    return {
+      level: 'caution',
+      badge: 'Caution',
+      text: `Peak climb of ${worstClimb.toFixed(0)}% is at or beyond this board's rated climb limit (${climbLimit}%). Expect the motors to labour, speed to drop sharply, and range to run worse than estimated on that stretch.`
+    };
+  }
+  if (totalWh > usableWh * 0.7) {
+    return {
+      level: 'caution',
+      badge: 'Caution',
+      text: `This route uses ${(totalWh / usableWh * 100).toFixed(0)}% of usable battery one way. Fine for a single leg, tight for a round trip without charging in between.`
+    };
+  }
+  return {
+    level: 'ok',
+    badge: 'OK',
+    text: `Comfortably within range and within this board's climb and braking limits — ${totalWh.toFixed(0)} Wh, ${(totalWh / usableWh * 100).toFixed(0)}% of usable battery.`
+  };
+}
+
+/* ---------- UI wiring ---------- */
+const $ = (id) => document.getElementById(id);
+let map, routeLayer, stopMarkers = [];
+
+function setStatus(msg, isErr) {
+  const el = $('status');
+  el.textContent = msg;
+  el.className = 'status' + (isErr ? ' err' : '');
+}
+
+/* ---------- stops (origin, any number of waypoints, destination) ---------- */
+let stops = [{ value: '' }, { value: '' }];
+let activeStopIndex = 0;
+
+function stopIcon(i, n) {
+  if (i === 0) return '<span class="marker"><span class="origin-dot"></span></span>';
+  if (i === n - 1) return '<span class="marker"><svg class="dest-pin" viewBox="0 0 24 24"><path fill="#ff5a52" d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.62 6.5 12 7.09 12.56a.55.55 0 00.82 0C13 21.5 19.5 15.12 19.5 9.5 19.5 5.36 16.14 2 12 2zm0 10.25A2.75 2.75 0 1112 6.75a2.75 2.75 0 010 5.5z"/></svg></span>';
+  return '<span class="marker"><span class="waypoint-dot"></span></span>';
+}
+
+function stopPlaceholder(i, n) {
+  if (i === 0) return 'Choose starting point';
+  if (i === n - 1) return 'Choose destination';
+  return `Add stop ${i}`;
+}
+
+function renderStops() {
+  const n = stops.length;
+  const rows = $('stopRows');
+  rows.innerHTML = stops.map((s, i) => `
+    <div class="searchrow">
+      ${stopIcon(i, n)}
+      <input type="text" data-idx="${i}" class="stopInput" placeholder="${stopPlaceholder(i, n)}" autocomplete="off" required>
+      <button type="button" class="rowbtn save" data-idx="${i}" aria-label="Save this place" title="Save this place">
+        <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+      </button>
+      ${(i > 0 && i < n - 1) ? `<button type="button" class="rowbtn remove" data-idx="${i}" aria-label="Remove this stop" title="Remove this stop">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>` : ''}
+    </div>
+  `).join('');
+
+  rows.querySelectorAll('.stopInput').forEach((input, i) => {
+    input.value = stops[i].value;
+    input.addEventListener('input', (e) => { stops[i].value = e.target.value; });
+    input.addEventListener('focus', () => { activeStopIndex = i; });
+  });
+  rows.querySelectorAll('.rowbtn.save').forEach((btn) => {
+    btn.addEventListener('click', () => saveStopAsPreset(Number(btn.dataset.idx)));
+  });
+  rows.querySelectorAll('.rowbtn.remove').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      stops.splice(Number(btn.dataset.idx), 1);
+      renderStops();
+    });
+  });
+
+  positionRail();
+}
+
+function positionRail() {
+  const box = $('searchbox');
+  const markers = box.querySelectorAll('.marker');
+  if (markers.length < 2) { $('rail').style.display = 'none'; return; }
+  const boxTop = box.getBoundingClientRect().top;
+  const first = markers[0].getBoundingClientRect();
+  const last = markers[markers.length - 1].getBoundingClientRect();
+  const rail = $('rail');
+  rail.style.display = '';
+  rail.style.top = (first.top - boxTop + first.height / 2 + 6) + 'px';
+  rail.style.height = Math.max(0, (last.top - boxTop + last.height / 2 - 6) - (first.top - boxTop + first.height / 2 + 6)) + 'px';
+}
+
+$('addStopBtn').addEventListener('click', () => {
+  stops.splice(stops.length - 1, 0, { value: '' });
+  renderStops();
+  const inputs = document.querySelectorAll('.stopInput');
+  if (inputs[stops.length - 2]) inputs[stops.length - 2].focus();
+});
+
+$('swapBtn').addEventListener('click', () => {
+  stops.reverse();
+  renderStops();
+});
+
+/* ---------- saved places (localStorage) ---------- */
+const PRESETS_KEY = 'gradient-presets-v1';
+function loadPresets() {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY)) || []; }
+  catch (e) { return []; }
+}
+function savePresets(list) {
+  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(list)); } catch (e) { /* storage unavailable */ }
+}
+
+function saveStopAsPreset(idx) {
+  const val = (stops[idx] && stops[idx].value || '').trim();
+  if (!val) { setStatus('Type a place into that field before saving it.', true); return; }
+  const suggested = val.length > 28 ? val.slice(0, 28) + '…' : val;
+  const label = window.prompt('Save this place as:', suggested);
+  if (!label) return;
+  const list = loadPresets();
+  list.push({ id: Date.now() + Math.random(), label: label.trim(), query: val });
+  savePresets(list);
+  renderPresets();
+}
+
+function renderPresets() {
+  const list = loadPresets();
+  const box = $('presets');
+  if (!list.length) {
+    box.innerHTML = '<span class="status" style="margin:0;">No saved places yet — tap ★ on a stop to save it.</span>';
+    return;
+  }
+  box.innerHTML = list.map((p) => `
+    <span class="preset-chip" data-id="${p.id}">
+      <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+      ${p.label}
+      <span class="del" data-id="${p.id}" title="Remove saved place">&times;</span>
+    </span>
+  `).join('');
+
+  box.querySelectorAll('.preset-chip').forEach((chip) => {
+    chip.addEventListener('click', (e) => {
+      if (e.target.closest('.del')) return;
+      const p = list.find((x) => String(x.id) === chip.dataset.id);
+      if (!p) return;
+      stops[activeStopIndex].value = p.query;
+      renderStops();
+      const inputs = document.querySelectorAll('.stopInput');
+      if (inputs[activeStopIndex]) inputs[activeStopIndex].focus();
+    });
+  });
+  box.querySelectorAll('.del').forEach((del) => {
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      savePresets(list.filter((x) => String(x.id) !== del.dataset.id));
+      renderPresets();
+    });
+  });
+}
+
+function ensureMap() {
+  if (map) return map;
+  map = L.map('map', { zoomControl: false }).setView(CT_CENTER, 13);
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    subdomains: 'abcd',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(map);
+  return map;
+}
+
+// Merge consecutive same-colour segments into one polyline each — the
+// underlying points still trace every vertex of the full-resolution route,
+// so the line hugs the road exactly, but we don't create one DOM element
+// per OSRM vertex (a few km of route can be 1000+ points).
+function mergePolylines(segs) {
+  const groups = [];
+  let cur = null;
+  for (const s of segs) {
+    if (!cur || cur.c !== s.c) {
+      if (cur) groups.push(cur);
+      cur = { c: s.c, pts: [s.a, s.b] };
+    } else {
+      cur.pts.push(s.b);
+    }
+  }
+  if (cur) groups.push(cur);
+  return groups;
+}
+
+function stopMapIcon(i, n) {
+  if (i === 0) return L.divIcon({
+    className: '', html: '<div style="width:14px;height:14px;border-radius:50%;background:#d6ff3f;border:2px solid #10140a;box-shadow:0 0 0 2px #d6ff3f, 0 0 10px rgba(214,255,63,.7);"></div>',
+    iconSize: [14, 14], iconAnchor: [7, 7]
+  });
+  if (i === n - 1) return L.divIcon({
+    className: '',
+    html: '<svg width="26" height="26" viewBox="0 0 24 24"><path fill="#ff5a52" stroke="#10140a" stroke-width="1" d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.62 6.5 12 7.09 12.56a.55.55 0 00.82 0C13 21.5 19.5 15.12 19.5 9.5 19.5 5.36 16.14 2 12 2zm0 10.25A2.75 2.75 0 1112 6.75a2.75 2.75 0 010 5.5z"/></svg>',
+    iconSize: [26, 26], iconAnchor: [13, 24]
+  });
+  return L.divIcon({
+    className: '', html: `<div style="width:18px;height:18px;border-radius:50%;background:#1b2125;color:#d6ff3f;border:1px solid #d6ff3f;font:700 10px Roboto,sans-serif;display:flex;align-items:center;justify-content:center;">${i}</div>`,
+    iconSize: [16, 16], iconAnchor: [8, 8]
+  });
+}
+
+function renderMap(segs, line, coords) {
+  const m = ensureMap();
+  if (routeLayer) routeLayer.remove();
+  stopMarkers.forEach((mk) => mk.remove());
+  stopMarkers = [];
+
+  const group = L.layerGroup();
+  for (const g of mergePolylines(segs)) {
+    L.polyline(g.pts, { color: '#0c0f10', weight: 9, opacity: 0.95, lineCap: 'round', lineJoin: 'round', className: 'route-casing', interactive: false }).addTo(group);
+    L.polyline(g.pts, { color: g.c, weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round', className: 'route-glow' }).addTo(group);
+  }
+  group.addTo(m);
+  routeLayer = group;
+
+  coords.forEach((c, i) => {
+    stopMarkers.push(L.marker(c, { icon: stopMapIcon(i, coords.length) }).addTo(m));
+  });
+
+  m.fitBounds(L.latLngBounds(line), { padding: [40, 40] });
+}
+
+$('locateBtn').addEventListener('click', () => locateInto(activeStopIndex));
+$('locateFab').addEventListener('click', () => {
+  ensureMap();
+  locateInto(0, true);
+});
+
+function locateInto(idx, panMap) {
+  if (!navigator.geolocation) {
+    setStatus('Geolocation is not available in this browser.', true);
+    return;
+  }
+  setStatus('Finding your location…');
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude, longitude } = pos.coords;
+      if (panMap) ensureMap().setView([latitude, longitude], 15);
+      try {
+        stops[idx].value = await reverseGeocode(latitude, longitude);
+      } catch (err) {
+        stops[idx].value = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      }
+      renderStops();
+      setStatus('');
+    },
+    () => setStatus('Could not get your location — check browser permissions.', true),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+$('planForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('planBtn');
+  btn.disabled = true;
+  $('results').classList.add('hidden');
+
+  try {
+    const queries = stops.map((s) => s.value.trim());
+    if (queries.length < 2 || queries.some((q) => !q)) {
+      throw new Error('Every stop needs a place before you can plan the route.');
+    }
+    const boardVal = document.querySelector('input[name=board]:checked').value;
+    const [capWh, climbLimit, brakeLimit] = boardVal.split('|').map(Number);
+    const usableWh = capWh * USABLE;
+    const mass = RIDER_KIT_KG + BOARD_KG;
+
+    // Geocode every stop in order, respecting Nominatim's 1 req/sec policy.
+    const coords = [];
+    for (let i = 0; i < queries.length; i++) {
+      setStatus(`Geocoding stop ${i + 1} of ${queries.length}…`);
+      coords.push(await geocode(queries[i]));
+      if (i < queries.length - 1) await new Promise((r) => setTimeout(r, NOMINATIM_DELAY_MS));
+    }
+
+    // Route each consecutive pair of stops and stitch the legs into one
+    // continuous line, dropping a leg's duplicated first point.
+    let line = [];
+    for (let i = 0; i < coords.length - 1; i++) {
+      setStatus(`Fetching leg ${i + 1} of ${coords.length - 1}…`);
+      const leg = await route(coords[i], coords[i + 1]);
+      line = line.concat(line.length ? leg.slice(1) : leg);
+    }
+
+    setStatus('Resampling and fetching elevation…');
+    const pts = resample(line, 50);
+    const elev = await elevations(pts);
+
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + haversine(pts[i - 1], pts[i]));
+
+    let totalWh = 0, totalClimb = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const d = cum[i] - cum[i - 1];
+      const rise = elev[i] - elev[i - 1];
+      const grade = rise / Math.max(1, d);
+      totalWh += segWh(d, grade, mass, 22);
+      if (rise > 0) totalClimb += rise;
+    }
+
+    // Colour the full-resolution road geometry (`line`), not the coarser
+    // 50 m sample points — this is what makes the map hug actual roads.
+    const lineCum = cumulative(line);
+    const segs = routeSegments(line, lineCum, pts, elev, cum);
+    const v = verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit);
+
+    $('verdict').className = 'verdict ' + v.level;
+    $('verdictBadge').textContent = v.badge;
+    $('verdictText').textContent = v.text;
+
+    $('statDist').textContent = (cum[cum.length - 1] / 1000).toFixed(1) + ' km';
+    $('statClimb').textContent = totalClimb.toFixed(0) + ' m';
+    $('statWh').textContent = totalWh.toFixed(0) + ' Wh';
+    $('statPct').textContent = (totalWh / usableWh * 100).toFixed(0) + '%';
+
+    $('profile').innerHTML = profileSVG(pts, elev, cum);
+    $('results').classList.remove('hidden');
+    renderMap(segs, line, coords);
+
+    setStatus('');
+  } catch (err) {
+    setStatus(err.message || 'Something went wrong.', true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+ensureMap();
+renderStops();
+renderPresets();
+window.addEventListener('resize', positionRail);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      /* file:// or unsupported context — app still works, just no offline cache */
+    });
+  });
+}
+</script>
+</body>
+</html>
