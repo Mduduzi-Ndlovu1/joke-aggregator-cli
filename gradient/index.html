@@ -56,6 +56,12 @@
     box-shadow:0 0 12px rgba(214,255,63,.55);}
   .panel-scroll{overflow-y:auto;flex:1;scrollbar-color:var(--border) transparent;}
 
+  /* Stop inputs stay pinned to the top of the scrollable panel — otherwise
+     scrolling down through presets/saved trips/ride modes carries the
+     location fields out of view with nothing marking where they went. */
+  .stickystops{position:sticky;top:0;z-index:6;background:var(--surface);
+    padding-top:2px;box-shadow:0 12px 16px -12px rgba(0,0,0,.6);}
+
   .brand{display:flex;align-items:center;gap:12px;padding:16px 16px 10px;}
   .brand .dot{width:34px;height:34px;border-radius:10px;background:var(--volt);
     display:flex;align-items:center;justify-content:center;flex:none;
@@ -332,18 +338,20 @@
     </div>
 
     <form class="plan" id="planForm">
-      <div class="searchbox" id="searchbox">
-        <div class="rail" id="rail"></div>
-        <div id="stopRows"></div>
-        <button type="button" class="swapbtn" id="swapBtn" aria-label="Reverse stop order" title="Reverse stop order">
-          <svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3 1.4-1.4L21.8 8l-5.4 5.4L15 12l3-3H7V7zm10 10H6l3 3-1.4 1.4L2.2 16l5.4-5.4L9 12l-3 3h11v2z"/></svg>
+      <div class="stickystops">
+        <div class="searchbox" id="searchbox">
+          <div class="rail" id="rail"></div>
+          <div id="stopRows"></div>
+          <button type="button" class="swapbtn" id="swapBtn" aria-label="Reverse stop order" title="Reverse stop order">
+            <svg viewBox="0 0 24 24"><path d="M7 7h11l-3-3 1.4-1.4L21.8 8l-5.4 5.4L15 12l3-3H7V7zm10 10H6l3 3-1.4 1.4L2.2 16l5.4-5.4L9 12l-3 3h11v2z"/></svg>
+          </button>
+        </div>
+
+        <button type="button" class="add-stop" id="addStopBtn">
+          <span class="plus"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></span>
+          Add stop
         </button>
       </div>
-
-      <button type="button" class="add-stop" id="addStopBtn">
-        <span class="plus"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></span>
-        Add stop
-      </button>
 
       <div class="presets" id="presets"></div>
 
@@ -808,7 +816,10 @@ function renderStops() {
   rows.querySelectorAll('.stopInput').forEach((input, i) => {
     input.value = stops[i].value;
     input.addEventListener('input', (e) => { stops[i].value = e.target.value; });
-    input.addEventListener('focus', () => { activeStopIndex = i; });
+    input.addEventListener('focus', () => {
+      activeStopIndex = i;
+      input.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
   });
   rows.querySelectorAll('.rowbtn.save').forEach((btn) => {
     btn.addEventListener('click', () => saveStopAsPreset(Number(btn.dataset.idx)));
