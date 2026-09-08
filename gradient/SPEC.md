@@ -172,6 +172,33 @@ real traffic.
 OSM `surface=*` and `smoothness=*` tags are sparse in Cape Town. A route over
 cobbles scores identically to smooth tar. Small wheels care enormously about this.
 
+### 5. "Offline" means replay, not first-time planning
+
+Geocoding, routing and elevation are all live third-party lookups (see External
+services). There is no bundled road graph, so **planning a brand-new route requires
+a connection**, full stop — no amount of service-worker cleverness changes that.
+
+What genuinely works with zero network access:
+
+- The installed app shell (HTML/CSS/JS, Leaflet, the board/mode data) — precached
+  on install by `sw.js`, served network-first-with-cache-fallback so it still loads
+  offline and always prefers a fresher copy when one's reachable.
+- Map tiles and elevation samples already fetched once — `sw.js` caches these
+  permanently (`TERRAIN_CACHE`), since terrain doesn't change. A never-before-seen
+  area still shows a blank/grey map offline.
+- **Saved trips** (`gradient-trips-v1` in `localStorage`, capped at `TRIPS_MAX`):
+  every successful plan stores its full road geometry, elevation samples and
+  verdict inputs — not just the summary — so `loadTrip()` re-derives `segs` and the
+  verdict with `routeSegments()`/`verdictFor()` (cheap pure functions) and redraws
+  the exact same map, profile and stats with **zero fetch calls**. This is the whole
+  offline story: revisit a route you've already planned, anywhere, no signal needed.
+
+`updateNetBadge()` reflects `navigator.onLine` in the header and the submit handler
+short-circuits with a clear message when offline, rather than surfacing a raw
+"Failed to fetch" from the geocoder. Don't build an offline-first router on top of
+this without also solving Limitation 1 — bundling a real, sizeable road graph is a
+different project.
+
 ---
 
 ## Roadmap
@@ -251,6 +278,12 @@ traces agree. This is a product in itself, not a patch.
   hides a closed road. Tiles and elevation are cached permanently and deliberately:
   terrain height does not change.
 - Keyboard focus is visible and the layout is responsive to mobile. Keep both.
+- On mobile (≤640px) the panel is a bottom sheet: peek (grabber + brand) and
+  open states, transform-only animation with a spring easing, grabber is a real
+  `<button>` (tap/keyboard alternative to swipe), safe-area insets respected.
+- Motion: shared `--ease-spring`/`--ease-out` + `--dur-*` tokens, ease-out for
+  entry, staggered results reveal, `prefers-reduced-motion` disables it all.
+  No emoji as icons — inline SVG only.
 
 ---
 
@@ -267,4 +300,7 @@ response after an incident on an unregistered vehicle.
 
 This means a "private property" mode — estates, campuses, private trails, promenades
 — is arguably the real product rather than a feature. The disclaimer currently in the
-footer should not be removed.
+footer should not be removed. It may be collapsed via its ✕ button, but only
+because a one-tap "Legal note hidden — Show" bar takes its place and restores
+it (`gradient-legal-v1` in `localStorage`); the text itself must stay one tap
+away at all times.

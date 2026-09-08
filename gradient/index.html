@@ -21,6 +21,8 @@
     --red:#ff5a52; --red-tint:rgba(255,90,82,.14);
     --oxblood:#4a1420; --rust:#b5502e; --ochre:#c98a2c; --moss:#6b8f4e; --sage:#8fae7a;
     --volt:#d6ff3f; --volt-ink:#10140a;
+    --ease-spring:cubic-bezier(.32,.72,0,1); --ease-out:cubic-bezier(.2,.7,.3,1);
+    --dur-1:.15s; --dur-2:.3s; --dur-3:.45s;
     --shadow:0 8px 28px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.06) inset;
     --radius-panel:16px; --radius-card:10px; --radius-pill:999px;
   }
@@ -32,7 +34,9 @@
 
   /* full-bleed night map — dark asphalt base so the volt UI + gradient route glow */
   #map{position:fixed;inset:0;z-index:0;background:#0c0f10;}
-  #map .leaflet-tile-pane{filter:saturate(.9) contrast(1.05) brightness(.98);}
+  /* OSM tiles are light by default — invert to derive the dark look
+     instead of depending on a paid dark basemap (see ensureMap()). */
+  #map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.94) contrast(.88) saturate(.7);}
   #map::after{content:"";position:absolute;inset:0;z-index:500;pointer-events:none;
     background:radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0,0,0,.42) 100%);}
   .leaflet-control-zoom{box-shadow:var(--shadow) !important;border:1px solid var(--border) !important;border-radius:10px !important;overflow:hidden;}
@@ -59,6 +63,27 @@
   .brand .dot svg{width:19px;height:19px;fill:#10140a;}
   .brand h1{margin:0;font-size:1.05rem;font-weight:700;color:var(--ink);letter-spacing:.14em;text-transform:uppercase;}
   .brand p{margin:2px 0 0;font-size:.7rem;color:var(--dim);letter-spacing:.02em;text-transform:uppercase;}
+
+  .netbadge{flex:none;display:flex;align-items:center;gap:5px;font-size:.62rem;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;border-radius:var(--radius-pill);
+    border:1px solid var(--border);color:var(--dim);background:var(--surface-2);white-space:nowrap;}
+  .netbadge .pip{width:6px;height:6px;border-radius:50%;background:var(--green);}
+  .netbadge.off{color:var(--amber);border-color:rgba(255,178,36,.4);}
+  .netbadge.off .pip{background:var(--amber);box-shadow:0 0 6px rgba(255,178,36,.7);}
+
+  .trips{display:flex;flex-direction:column;gap:6px;padding:2px 0 12px;}
+  .trip{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--border);
+    border-radius:var(--radius-card);background:var(--surface-2);cursor:pointer;text-align:left;width:100%;}
+  .trip:hover{border-color:var(--volt);}
+  .trip svg{flex:none;width:15px;height:15px;fill:var(--volt);}
+  .trip .tmain{flex:1;min-width:0;}
+  .trip .troute{font-size:.78rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .trip .tmeta{font-size:.66rem;color:var(--dim);margin-top:1px;}
+  .trip .del{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;color:var(--dim);font-size:14px;}
+  .trip .del:hover{background:var(--surface-hover);color:var(--red);}
+  .offlinehint{font-size:.7rem;color:var(--amber);background:var(--amber-tint);border:1px solid rgba(255,178,36,.4);
+    border-radius:var(--radius-card);padding:9px 10px;margin-bottom:10px;line-height:1.4;}
 
   form.plan{padding:4px 16px 12px;}
 
@@ -163,7 +188,37 @@
   }
   button.go:disabled{opacity:.5;cursor:wait;}
   button.go:hover:not(:disabled){background:var(--blue-dark);}
+  button.go .bolt{width:16px;height:16px;fill:currentColor;flex:none;}
+  button.go{transition:transform var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);}
+  button.go:active:not(:disabled){transform:scale(.98);}
+  .chip label, .tmode label, .omode label{transition:transform var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);}
+  .chip label:active, .tmode label:active, .omode label:active{transform:scale(.97);}
+  .preset-chip, .rowbtn, .swapbtn, .add-stop, .locatebtn, .locate-fab{transition:transform var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);}
+  .locate-fab:active, .swapbtn:active{transform:scale(.94);}
   input:focus-visible, select:focus-visible, button:focus-visible{outline:2px solid var(--volt);outline-offset:2px;}
+
+  .status.busy::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:dots 1s steps(4) infinite;}
+  @keyframes dots{0%{content:"";}25%{content:".";}50%{content:"..";}75%{content:"...";}}
+
+  .results:not(.hidden) .verdict{animation:rise var(--dur-2) var(--ease-spring);}
+  .results:not(.hidden) .stat{animation:rise var(--dur-2) var(--ease-spring) backwards;}
+  .results:not(.hidden) .stat:nth-child(2){animation-delay:.05s;}
+  .results:not(.hidden) .stat:nth-child(3){animation-delay:.1s;}
+  .results:not(.hidden) .stat:nth-child(4){animation-delay:.15s;}
+  .results:not(.hidden) #profile{animation:fade var(--dur-3) var(--ease-out);}
+  .results:not(.hidden) #profile path{stroke-dasharray:1400;stroke-dashoffset:1400;animation:draw .9s var(--ease-out) .1s forwards;}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  @keyframes fade{from{opacity:0;}to{opacity:1;}}
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  @keyframes pop{from{opacity:0;transform:scale(.96) translateY(8px);}to{opacity:1;transform:none;}}
+  .ocard{animation:pop var(--dur-3) var(--ease-spring);}
+  .route-glow{filter:drop-shadow(0 0 6px rgba(0,0,0,.7));animation:fade var(--dur-3) var(--ease-out);}
+
+  .grabber{display:none;}
+
+  @media (prefers-reduced-motion:reduce){
+    *, *::before, *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+  }
 
   .status{font-size:.78rem;color:var(--dim);margin-top:8px;min-height:1.1em;}
   .status.err{color:var(--red);}
@@ -199,8 +254,17 @@
   .legend span{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);padding:3px 8px;border-radius:var(--radius-pill);}
   .legend i{width:8px;height:8px;border-radius:50%;display:inline-block;}
 
-  .legal{font-size:.7rem;line-height:1.5;color:var(--dim);padding:12px 16px 16px;border-top:1px solid var(--border);background:#101415;}
+  .legal{position:relative;font-size:.7rem;line-height:1.5;color:var(--dim);padding:12px 44px 16px 16px;border-top:1px solid var(--border);background:#101415;}
   .legal strong{color:var(--ink);}
+  .legal-x{position:absolute;top:4px;right:4px;width:40px;height:40px;border:none;background:transparent;
+    border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dim);}
+  .legal-x:hover{color:var(--ink);background:var(--surface-hover);}
+  .legal-x svg{width:14px;height:14px;fill:currentColor;}
+  .legal-mini{width:100%;border:none;border-top:1px solid var(--border);background:#101415;color:var(--dim);
+    font-size:.72rem;font-family:inherit;padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    cursor:pointer;text-align:left;}
+  .legal-mini:hover{color:var(--volt);}
+  .legal-mini strong{color:var(--ink);}
 
   .locate-fab{position:fixed;z-index:10;width:42px;height:42px;border-radius:50%;background:var(--surface-2);
     border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dim);}
@@ -212,9 +276,23 @@
   .dest-pin{width:18px;height:18px;}
 
   @media (max-width:640px){
-    .panel{top:0;left:0;right:0;bottom:auto;width:100%;max-width:100%;border-radius:0 0 var(--radius-panel) var(--radius-panel);
-      max-height:62vh;border-left:none;border-right:none;border-top:none;}
-    .locate-fab{right:12px;bottom:12px;}
+    .panel{top:auto;left:0;right:0;bottom:0;width:100%;max-width:100%;height:74dvh;
+      border-radius:var(--radius-panel) var(--radius-panel) 0 0;
+      border-left:none;border-right:none;border-bottom:none;
+      padding-bottom:env(safe-area-inset-bottom);
+      transform:translateY(calc(100% - 152px));
+      transition:transform var(--dur-3) var(--ease-spring);}
+    .panel.sheet-open{transform:translateY(0);}
+    .panel::before{display:none;}
+    .grabber{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;
+      padding:12px 0 8px;border:none;background:transparent;cursor:pointer;touch-action:pan-y;flex:none;}
+    .grabber span{width:40px;height:5px;border-radius:999px;background:#3d464c;}
+    .grabber:active span{background:var(--volt);}
+    .panel-scroll{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+    .locate-fab{right:12px;bottom:calc(164px + env(safe-area-inset-bottom));z-index:9;}
+    .onboard{padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+    .brand{padding:6px 16px 10px;}
+    .stats{grid-template-columns:repeat(2,1fr);}
   }
   @media (min-width:641px){
     .locate-fab{left:12px;bottom:12px;}
@@ -231,7 +309,7 @@
     <h2 id="onboardTitle">Pick your machine</h2>
     <p class="osub">Gradient tunes drag, rolling resistance, cruise speed and battery math to the vehicle class. You can switch anytime under “Ride”.</p>
     <div class="omodes" id="omodes" role="radiogroup" aria-label="Transport mode"></div>
-    <button type="button" class="go" id="onboardGo">⚡ Start planning</button>
+    <button type="button" class="go" id="onboardGo"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>Start planning</button>
   </div>
 </div>
 
@@ -239,16 +317,18 @@
   <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
 </button>
 
-<div class="panel">
-  <div class="panel-scroll">
+<div class="panel" id="panel">
+  <button type="button" class="grabber" id="sheetGrab" aria-expanded="false" aria-controls="panelScroll" aria-label="Expand route panel"><span aria-hidden="true"></span></button>
+  <div class="panel-scroll" id="panelScroll">
     <div class="brand">
       <span class="dot" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>
       </span>
-      <div>
+      <div style="flex:1;min-width:0;">
         <h1>Gradient</h1>
         <p>Micromobility route lab — climb / brake / range</p>
       </div>
+      <span class="netbadge" id="netBadge"><span class="pip"></span><span id="netBadgeText">Online</span></span>
     </div>
 
     <form class="plan" id="planForm">
@@ -267,6 +347,11 @@
 
       <div class="presets" id="presets"></div>
 
+      <div id="offlineHint"></div>
+
+      <p class="sectionlabel" id="tripsLabel" style="display:none;">Saved trips (offline)</p>
+      <div class="trips" id="trips"></div>
+
       <button type="button" class="locatebtn" id="locateBtn">
         <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
         Use my location
@@ -278,7 +363,7 @@
       <p class="sectionlabel">Board // Powertrain</p>
       <div class="chips" role="radiogroup" aria-label="Board" id="boards"></div>
 
-      <button type="submit" class="go" id="planBtn">⚡ Plan route</button>
+      <button type="submit" class="go" id="planBtn"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>Plan route</button>
       <div class="status" id="status" role="status" aria-live="polite"></div>
     </form>
 
@@ -309,13 +394,17 @@
     </div>
   </div>
 
-  <div class="legal">
+  <div class="legal" id="legal">
+    <button type="button" class="legal-x" id="legalX" aria-label="Dismiss legal note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
     <strong>Legal note.</strong> Electric skateboards cannot legally be ridden on public roads or
     pavements in South Africa — no registration category exists for a motorised skateboard under the
     National Road Traffic Act 93 of 1996, and pavements form part of the public road reserve. Treat
     this as planning for private property, estates, campuses and trails unless you've confirmed your
     own legal position.
   </div>
+  <button type="button" class="legal-mini hidden" id="legalMini"><strong>Legal note hidden</strong> — Show</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -679,8 +768,9 @@ let map, routeLayer, stopMarkers = [];
 
 function setStatus(msg, isErr) {
   const el = $('status');
-  el.textContent = msg;
-  el.className = 'status' + (isErr ? ' err' : '');
+  const busy = !!(msg && !isErr);
+  el.textContent = busy ? msg.replace(/…+$/, '') : msg;
+  el.className = 'status' + (isErr ? ' err' : '') + (busy ? ' busy' : '');
 }
 
 /* ---------- stops (origin, any number of waypoints, destination) ---------- */
@@ -815,14 +905,128 @@ function renderPresets() {
   });
 }
 
+/* ---------- offline network status ---------- */
+function updateNetBadge() {
+  const online = navigator.onLine;
+  const badge = $('netBadge');
+  badge.className = 'netbadge' + (online ? '' : ' off');
+  $('netBadgeText').textContent = online ? 'Online' : 'Offline';
+  const hint = $('offlineHint');
+  hint.className = online ? '' : 'offlinehint';
+  hint.textContent = online ? '' :
+    "You're offline. Planning a new route needs a connection (geocoding, roads and elevation are live lookups) — but any saved trip below still opens instantly, fully offline.";
+}
+window.addEventListener('online', updateNetBadge);
+window.addEventListener('offline', updateNetBadge);
+
+/* ---------- trip history (localStorage) ----------
+   Stores everything needed to redraw a computed route with zero network
+   calls: the road geometry, the elevation samples, and the inputs to
+   verdictFor(). segs/verdict are cheap pure functions, so they're
+   recomputed on load rather than duplicated into storage. */
+const TRIPS_KEY = 'gradient-trips-v1';
+const TRIPS_MAX = 15;
+function loadTrips() {
+  try { return JSON.parse(localStorage.getItem(TRIPS_KEY)) || []; }
+  catch (e) { return []; }
+}
+function saveTrips(list) {
+  try { localStorage.setItem(TRIPS_KEY, JSON.stringify(list.slice(0, TRIPS_MAX))); }
+  catch (e) { /* storage full or unavailable — trip just won't persist */ }
+}
+function addTrip(trip) {
+  const list = loadTrips();
+  list.unshift(trip);
+  saveTrips(list);
+  renderTrips();
+}
+
+function renderTrips() {
+  const list = loadTrips();
+  $('tripsLabel').style.display = list.length ? '' : 'none';
+  const box = $('trips');
+  box.innerHTML = list.map((t, i) => `
+    <button type="button" class="trip" data-i="${i}">
+      <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>
+      <span class="tmain">
+        <span class="troute">${t.queries.join(' → ')}</span>
+        <span class="tmeta">${MODES[t.modeId] ? MODES[t.modeId].label : t.modeId} · ${t.totalKm.toFixed(1)} km · ${new Date(t.ts).toLocaleString()}</span>
+      </span>
+      <span class="del" data-i="${i}" title="Delete saved trip">&times;</span>
+    </button>
+  `).join('');
+
+  box.querySelectorAll('.trip').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.del')) return;
+      loadTrip(list[Number(el.dataset.i)]);
+    });
+  });
+  box.querySelectorAll('.del').forEach((del) => {
+    del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const next = list.filter((_, i) => i !== Number(del.dataset.i));
+      saveTrips(next);
+      renderTrips();
+    });
+  });
+}
+
+// Redraws a saved trip with no network access at all — same rendering path
+// a live plan uses, fed from stored data instead of fresh API responses.
+function loadTrip(t) {
+  stops = t.queries.map((q) => ({ value: q }));
+  activeStopIndex = 0;
+  renderStops();
+  if (MODES[t.modeId]) selectMode(t.modeId, true);
+  const boardInput = document.querySelector(`input[name=board][value="${t.boardVal}"]`);
+  if (boardInput) boardInput.checked = true;
+
+  const lineCum = cumulative(t.line);
+  const segs = routeSegments(t.line, lineCum, t.pts, t.elev, t.cum);
+  const mode = MODES[t.modeId] || MODES[modeId];
+  const v = verdictFor(segs, t.totalWh, t.usableWh, t.climbLimit, t.brakeLimit, mode);
+  applyResult(v, t.pts, t.elev, t.cum, t.totalWh, t.totalClimb, t.usableWh, mode, segs, t.line, t.coords);
+  setStatus('Loaded from saved trips — no network used.');
+}
+
+function applyResult(v, pts, elev, cum, totalWh, totalClimb, usableWh, mode, segs, line, coords) {
+  $('verdict').className = 'verdict ' + v.level;
+  $('verdictBadge').textContent = v.badge;
+  $('verdictText').textContent = v.text;
+
+  $('statDist').textContent = (cum[cum.length - 1] / 1000).toFixed(1) + ' km';
+  $('statClimb').textContent = totalClimb.toFixed(0) + ' m';
+  if (mode.human) {
+    $('statWh').textContent = (totalWh * 0.86).toFixed(0) + ' kcal';
+    $('statWhK').textContent = 'Effort';
+    $('statPctK').textContent = "Of day's budget";
+  } else {
+    $('statWh').textContent = totalWh.toFixed(0) + ' Wh';
+    $('statWhK').textContent = 'Energy used';
+    $('statPctK').textContent = 'Of usable battery';
+  }
+  $('statPct').textContent = (totalWh / usableWh * 100).toFixed(0) + '%';
+
+  $('profile').innerHTML = profileSVG(pts, elev, cum);
+    $('results').classList.remove('hidden');
+    if (isMobileView()) setSheet(true);
+  renderMap(segs, line, coords);
+}
+
 function ensureMap() {
   if (map) return map;
   map = L.map('map', { zoomControl: false }).setView(CT_CENTER, 13);
   L.control.zoom({ position: 'topright' }).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    maxZoom: 20,
-    subdomains: 'abcd',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  // Standard OSM raster tiles — free, keyless, no usage cap beyond the
+  // published tile policy. CARTO's dark_all basemap looked identical but
+  // now requires a paid API key (it silently returns a watermarked "API KEY
+  // REQUIRED" placeholder as an HTTP 200, so it looked fine in a status-code
+  // check). The dark look is re-derived with a CSS invert filter instead —
+  // see .leaflet-tile-pane above.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
   return map;
 }
@@ -923,6 +1127,9 @@ $('planForm').addEventListener('submit', async (e) => {
     if (queries.length < 2 || queries.some((q) => !q)) {
       throw new Error('Every stop needs a place before you can plan the route.');
     }
+    if (!navigator.onLine) {
+      throw new Error("You're offline — planning a new route needs a connection. Pick a saved trip below instead.");
+    }
     const boardVal = document.querySelector('input[name=board]:checked').value;
     const [capWh, climbLimit, brakeLimit] = boardVal.split('|').map(Number);
     const phys = MODES[modeId].phys;
@@ -966,28 +1173,18 @@ $('planForm').addEventListener('submit', async (e) => {
     // 50 m sample points — this is what makes the map hug actual roads.
     const lineCum = cumulative(line);
     const segs = routeSegments(line, lineCum, pts, elev, cum);
-    const v = verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit, MODES[modeId]);
+    const mode = MODES[modeId];
+    const v = verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit, mode);
 
-    $('verdict').className = 'verdict ' + v.level;
-    $('verdictBadge').textContent = v.badge;
-    $('verdictText').textContent = v.text;
+    applyResult(v, pts, elev, cum, totalWh, totalClimb, usableWh, mode, segs, line, coords);
 
-    $('statDist').textContent = (cum[cum.length - 1] / 1000).toFixed(1) + ' km';
-    $('statClimb').textContent = totalClimb.toFixed(0) + ' m';
-    if (MODES[modeId].human) {
-      $('statWh').textContent = (totalWh * 0.86).toFixed(0) + ' kcal';
-      $('statWhK').textContent = 'Effort';
-      $('statPctK').textContent = "Of day's budget";
-    } else {
-      $('statWh').textContent = totalWh.toFixed(0) + ' Wh';
-      $('statWhK').textContent = 'Energy used';
-      $('statPctK').textContent = 'Of usable battery';
-    }
-    $('statPct').textContent = (totalWh / usableWh * 100).toFixed(0) + '%';
-
-    $('profile').innerHTML = profileSVG(pts, elev, cum);
-    $('results').classList.remove('hidden');
-    renderMap(segs, line, coords);
+    // Cache everything needed to redraw this exact result with zero network
+    // calls, so it's still openable from "Saved trips" when offline.
+    addTrip({
+      ts: Date.now(), modeId, boardVal, queries, coords, line, pts, elev, cum,
+      totalWh, totalClimb, usableWh, climbLimit, brakeLimit,
+      totalKm: cum[cum.length - 1] / 1000
+    });
 
     setStatus('');
   } catch (err) {
@@ -1071,11 +1268,62 @@ $('onboardGo').addEventListener('click', () => {
   $('planBtn').focus();
 });
 
+/* ---------- bottom sheet (mobile) + legal note ---------- */
+const LEGAL_KEY = 'gradient-legal-v1';
+const isMobileView = () => window.matchMedia('(max-width:640px)').matches;
+
+function setSheet(open) {
+  $('panel').classList.toggle('sheet-open', open);
+  const grab = $('sheetGrab');
+  grab.setAttribute('aria-expanded', open ? 'true' : 'false');
+  grab.setAttribute('aria-label', open ? 'Collapse route panel' : 'Expand route panel');
+}
+
+$('sheetGrab').addEventListener('click', () => {
+  setSheet(!$('panel').classList.contains('sheet-open'));
+});
+
+// Tap alternative is the grabber button above (WCAG dragging alternative);
+// swipe is a progressive enhancement that snaps to the nearest detent.
+(() => {
+  const grab = $('sheetGrab');
+  let startY = null, dy = 0;
+  grab.addEventListener('touchstart', (e) => {
+    if (!isMobileView()) return;
+    startY = e.touches[0].clientY; dy = 0;
+  }, { passive: true });
+  grab.addEventListener('touchmove', (e) => {
+    if (startY == null || !isMobileView()) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy < -8) { setSheet(true); startY = null; }
+    else if (dy > 8) { setSheet(false); startY = null; }
+  }, { passive: true });
+  grab.addEventListener('touchend', () => { startY = null; });
+})();
+
+function applyLegal() {
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(LEGAL_KEY) === '1'; } catch (e) { /* ignore */ }
+  $('legal').classList.toggle('hidden', dismissed);
+  $('legalMini').classList.toggle('hidden', !dismissed);
+}
+$('legalX').addEventListener('click', () => {
+  try { localStorage.setItem(LEGAL_KEY, '1'); } catch (e) { /* ignore */ }
+  applyLegal();
+});
+$('legalMini').addEventListener('click', () => {
+  try { localStorage.removeItem(LEGAL_KEY); } catch (e) { /* ignore */ }
+  applyLegal();
+});
+
 ensureMap();
 renderStops();
 renderPresets();
+renderTrips();
 renderTransport();
 maybeShowOnboard();
+applyLegal();
+updateNetBadge();
 window.addEventListener('resize', positionRail);
 
 if ('serviceWorker' in navigator) {
