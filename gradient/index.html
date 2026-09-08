@@ -120,6 +120,39 @@
   .chip input:checked + label strong{color:var(--volt-ink);}
   .chip input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
 
+  .tmodes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:2px 0 12px;}
+  .tmode{position:relative;}
+  .tmode input{position:absolute;opacity:0;pointer-events:none;}
+  .tmode label{display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;
+    border:1px solid var(--border);border-radius:var(--radius-card);font-size:.68rem;font-weight:700;
+    letter-spacing:.04em;text-transform:uppercase;color:var(--dim);cursor:pointer;background:var(--surface-2);}
+  .tmode label svg{width:20px;height:20px;fill:currentColor;}
+  .tmode input:checked + label{background:var(--volt);border-color:var(--volt);color:var(--volt-ink);}
+  .tmode input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
+
+  .onboard{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;
+    background:rgba(6,8,9,.72);padding:16px;}
+  .ocard{width:440px;max-width:100%;max-height:88vh;overflow-y:auto;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--radius-panel);box-shadow:var(--shadow);
+    padding:20px 18px 18px;}
+  .ocard::before{content:"";display:block;height:3px;margin:-20px -18px 14px;background:var(--volt);
+    border-radius:var(--radius-panel) var(--radius-panel) 0 0;}
+  .osection{font-size:.66rem;color:var(--volt);text-transform:uppercase;letter-spacing:.16em;font-weight:700;margin:0 0 6px;}
+  .ocard h2{margin:0;font-size:1.3rem;letter-spacing:.02em;}
+  .osub{font-size:.82rem;color:var(--dim);line-height:1.5;margin:8px 0 14px;}
+  .omodes{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+  .omode{position:relative;}
+  .omode input{position:absolute;opacity:0;pointer-events:none;}
+  .omode label{display:block;padding:12px;border:1px solid var(--border);border-radius:var(--radius-card);
+    cursor:pointer;background:var(--surface-2);}
+  .omode label svg{width:22px;height:22px;fill:var(--volt);}
+  .omode label strong{display:block;font-size:.86rem;margin:6px 0 2px;}
+  .omode label span{font-size:.72rem;color:var(--dim);line-height:1.4;display:block;}
+  .omode input:checked + label{border-color:var(--volt);box-shadow:0 0 0 1px var(--volt);background:#20272c;}
+  .omode input:checked + label strong{color:var(--volt);}
+  .omode input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
+  @media (min-width:641px){ .onboard{align-items:center;} }
+
   button.go{
     width:100%;padding:13px;border:none;border-radius:var(--radius-card);background:var(--volt);
     color:var(--volt-ink);font-weight:700;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;
@@ -189,6 +222,16 @@
 
 <div id="map"></div>
 
+<div class="onboard hidden" id="onboard">
+  <div class="ocard" role="dialog" aria-modal="true" aria-labelledby="onboardTitle">
+    <p class="osection">First — what are you riding?</p>
+    <h2 id="onboardTitle">Pick your machine</h2>
+    <p class="osub">Gradient tunes drag, rolling resistance, cruise speed and battery math to the vehicle class. You can switch anytime under “Ride”.</p>
+    <div class="omodes" id="omodes" role="radiogroup" aria-label="Transport mode"></div>
+    <button type="button" class="go" id="onboardGo">⚡ Start planning</button>
+  </div>
+</div>
+
 <button type="button" class="locate-fab" id="locateFab" aria-label="Use my location" title="Use my location">
   <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
 </button>
@@ -201,7 +244,7 @@
       </span>
       <div>
         <h1>Gradient</h1>
-        <p>E-skate route lab — climb / brake / range</p>
+        <p>Micromobility route lab — climb / brake / range</p>
       </div>
     </div>
 
@@ -226,21 +269,11 @@
         Use my location
       </button>
 
+      <p class="sectionlabel">Ride</p>
+      <div class="tmodes" id="tmodes" role="radiogroup" aria-label="Transport mode"></div>
+
       <p class="sectionlabel">Board // Powertrain</p>
-      <div class="chips" role="radiogroup" aria-label="Board">
-        <span class="chip">
-          <input type="radio" name="board" id="board1" value="336|30|12" checked>
-          <label for="board1">Journ-E Phantom · 336 Wh</label>
-        </span>
-        <span class="chip">
-          <input type="radio" name="board" id="board2" value="200|20|10">
-          <label for="board2">Budget single-motor · 200 Wh</label>
-        </span>
-        <span class="chip">
-          <input type="radio" name="board" id="board3" value="450|35|15">
-          <label for="board3">Off-road dual-motor · 450 Wh</label>
-        </span>
-      </div>
+      <div class="chips" role="radiogroup" aria-label="Board" id="boards"></div>
 
       <button type="submit" class="go" id="planBtn">⚡ Plan route</button>
       <div class="status" id="status" role="status" aria-live="polite"></div>
@@ -288,11 +321,71 @@
 'use strict';
 
 /* ---------- constants ---------- */
-const G = 9.81, RHO = 1.2, CDA = 0.65, CRR = 0.02, EFF = 0.80, USABLE = 0.87;
-const RIDER_KIT_KG = 110; // rider + kit; board mass added per-board is negligible (~6.8kg) and folded in here
-const BOARD_KG = 6.8;
+const G = 9.81, RHO = 1.2;
+const RIDER_KIT_KG = 110; // rider + kit; vehicle mass comes from the active mode
 const NOMINATIM_DELAY_MS = 1100; // respects 1 req/sec usage policy
 const CT_CENTER = [-33.9249, 18.4241];
+
+/* ---------- transport modes ----------
+   E-skate defaults match the original validated model exactly
+   (CDA 0.65, CRR 0.02, EFF 0.80, USABLE 0.87 — see SPEC.md regression values).
+   Other modes retune drag, rolling resistance, drivetrain efficiency,
+   usable capacity share, cruise speed and vehicle mass for the class. */
+const MODES = {
+  eskate: {
+    label: 'E-skate', tag: 'Boards that grind uphill, brakes that fear downhill',
+    phys: { cda: 0.65, crr: 0.02, eff: 0.80, usable: 0.87, speed: 22, vehicleKg: 6.8 },
+    boards: [
+      { label: 'Journ-E Phantom · 336 Wh', value: '336|30|12' },
+      { label: 'Budget single-motor · 200 Wh', value: '200|20|10' },
+      { label: 'Off-road dual-motor · 450 Wh', value: '450|35|15' },
+    ],
+    brakeNote: "That's a braking problem, not an effort problem — worst right after a full charge, when electronic braking is weakest. Don't ride this leg unless you know it and can footbrake it.",
+  },
+  ebike: {
+    label: 'E-bike', tag: 'Gears climb, hydraulic discs stop',
+    phys: { cda: 0.95, crr: 0.008, eff: 0.85, usable: 0.90, speed: 25, vehicleKg: 22 },
+    boards: [
+      { label: 'City commuter · 500 Wh', value: '500|25|22' },
+      { label: 'Cargo longtail · 750 Wh', value: '750|22|20' },
+      { label: 'Ultralight road · 360 Wh', value: '360|28|25' },
+    ],
+    brakeNote: "That's past what this bike's brakes can hold comfortably on a sustained descent — walk it, reroute, or expect serious brake fade.",
+  },
+  scooter: {
+    label: 'E-scooter', tag: 'Small wheels, short braking margin',
+    phys: { cda: 0.80, crr: 0.012, eff: 0.82, usable: 0.88, speed: 22, vehicleKg: 14 },
+    boards: [
+      { label: 'Commuter · 350 Wh', value: '350|18|12' },
+      { label: 'Dual-motor · 600 Wh', value: '600|25|15' },
+      { label: 'Lightweight · 250 Wh', value: '250|15|10' },
+    ],
+    brakeNote: "Small wheels and short wheelbase make steep descents sketchy fast — past this limit the scooter can out-brake its own stability. Reroute.",
+  },
+  euc: {
+    label: 'EUC / Onewheel', tag: 'Climbs anything, nosedives downhill',
+    phys: { cda: 0.70, crr: 0.015, eff: 0.85, usable: 0.88, speed: 20, vehicleKg: 12 },
+    boards: [
+      { label: 'Onewheel-class · 500 Wh', value: '500|25|10' },
+      { label: 'EUC mid · 1000 Wh', value: '1000|30|12' },
+      { label: 'EUC long-range · 1500 Wh', value: '1500|30|12' },
+    ],
+    brakeNote: "Self-balancing wheels climb hard but overspeed downhill — past this grade you risk pedal tilt-back or cutout. Do not ride it.",
+  },
+};
+const TRANSPORT_KEY = 'gradient-transport-v1';
+function loadMode() {
+  try {
+    const id = localStorage.getItem(TRANSPORT_KEY);
+    if (id && MODES[id]) return id;
+  } catch (e) { /* storage unavailable */ }
+  return 'eskate';
+}
+let modeId = loadMode();
+function saveMode(id) {
+  modeId = id;
+  try { localStorage.setItem(TRANSPORT_KEY, id); } catch (e) { /* storage unavailable */ }
+}
 
 /* ---------- geometry ---------- */
 function haversine(a, b) {
@@ -354,14 +447,17 @@ function smooth3(arr) {
 }
 
 /* ---------- physics ---------- */
-// distance in metres, grade as a fraction (0.06 = 6%), v in km/h
-function segWh(distance, grade, mass, vKmh) {
-  const v = vKmh / 3.6;
-  const fRoll = CRR * mass * G;
-  const fAir = 0.5 * RHO * CDA * v * v;
+// distance in metres, grade as a fraction (0.06 = 6%), v in km/h.
+// P defaults to the active transport mode's tuning; explicit vKmh keeps the
+// SPEC.md regression cases callable (e.g. segWh(1000, 0, 116.8, 25)).
+function segWh(distance, grade, mass, vKmh, P) {
+  const p = P || MODES[modeId].phys;
+  const v = (vKmh == null ? p.speed : vKmh) / 3.6;
+  const fRoll = p.crr * mass * G;
+  const fAir = 0.5 * RHO * p.cda * v * v;
   const fGrav = mass * G * Math.sin(Math.atan(grade));
   const f = Math.max(0, fRoll + fAir + fGrav); // clamped: no regen credited
-  return (f * distance) / EFF / 3600;
+  return (f * distance) / p.eff / 3600;
 }
 
 /* ---------- gradient bands (deliberately asymmetric — see SPEC.md) ---------- */
@@ -479,7 +575,8 @@ function routeSegments(line, lineCum, pts, elev, cum) {
 }
 
 /* ---------- verdict ---------- */
-function verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit) {
+function verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit, mode) {
+  const m = mode || MODES[modeId];
   const worstDescent = Math.min(0, ...segs.map((s) => s.grade));
   const worstClimb = Math.max(0, ...segs.map((s) => s.grade));
 
@@ -487,7 +584,7 @@ function verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit) {
     return {
       level: 'stop',
       badge: 'Stop',
-      text: `This route drops at up to ${Math.abs(worstDescent).toFixed(0)}%, past this board's ${brakeLimit}% braking limit. That's a braking problem, not an effort problem — worst right after a full charge, when electronic braking is weakest. Don't ride this leg unless you know it and can footbrake it.`
+      text: `This route drops at up to ${Math.abs(worstDescent).toFixed(0)}%, past this ${m.label}'s ${brakeLimit}% braking limit. ${m.brakeNote}`
     };
   }
   if (totalWh > usableWh) {
@@ -770,8 +867,9 @@ $('planForm').addEventListener('submit', async (e) => {
     }
     const boardVal = document.querySelector('input[name=board]:checked').value;
     const [capWh, climbLimit, brakeLimit] = boardVal.split('|').map(Number);
-    const usableWh = capWh * USABLE;
-    const mass = RIDER_KIT_KG + BOARD_KG;
+    const phys = MODES[modeId].phys;
+    const usableWh = capWh * phys.usable;
+    const mass = RIDER_KIT_KG + phys.vehicleKg;
 
     // Geocode every stop in order, respecting Nominatim's 1 req/sec policy.
     const coords = [];
@@ -802,7 +900,7 @@ $('planForm').addEventListener('submit', async (e) => {
       const d = cum[i] - cum[i - 1];
       const rise = elev[i] - elev[i - 1];
       const grade = rise / Math.max(1, d);
-      totalWh += segWh(d, grade, mass, 22);
+      totalWh += segWh(d, grade, mass);
       if (rise > 0) totalClimb += rise;
     }
 
@@ -810,7 +908,7 @@ $('planForm').addEventListener('submit', async (e) => {
     // 50 m sample points — this is what makes the map hug actual roads.
     const lineCum = cumulative(line);
     const segs = routeSegments(line, lineCum, pts, elev, cum);
-    const v = verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit);
+    const v = verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit, MODES[modeId]);
 
     $('verdict').className = 'verdict ' + v.level;
     $('verdictBadge').textContent = v.badge;
@@ -833,9 +931,81 @@ $('planForm').addEventListener('submit', async (e) => {
   }
 });
 
+/* ---------- transport modes + dynamic boards ---------- */
+const MODE_ICONS = {
+  eskate: '<svg viewBox="0 0 24 24"><path d="M2 16.5h18.5v2H2zM6 18.5a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zm12 0a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zM13 2l-2.2 9.5H4.5L6 14h6l2.4-9.5z"/></svg>',
+  ebike: '<svg viewBox="0 0 24 24"><path d="M5.5 17.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm13 0a3.5 3.5 0 100 7 3.5 3.5 0 000-7zM5 10h4l2.5 6H9.8L8 12H6v9H4v-9c0-1.1.9-2 2-2zm11-4h-3v2h3v4l5 7v-2.4l-3.7-5.1V8H18V6z"/></svg>',
+  scooter: '<svg viewBox="0 0 24 24"><path d="M12 2v8.5L6.5 20H4l6-9.5V4H8V2h4zm3 0v2h4.5l2 6H19l-1.6-4.5H15V14h6v-2.3l2.3 5.3H4v2h20v-2h-2.6L19 10V4h-4V2h-3zM7 20a2 2 0 100 4 2 2 0 000-4z"/></svg>',
+  euc: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm0 3a6 6 0 110 12 6 6 0 010-12zm0 3a3 3 0 100 6 3 3 0 000-6z"/></svg>',
+};
+
+function renderTransport() {
+  const ids = Object.keys(MODES);
+  $('tmodes').innerHTML = ids.map((id) => `
+    <span class="tmode">
+      <input type="radio" name="tmode" id="tm-${id}" value="${id}"${id === modeId ? ' checked' : ''}>
+      <label for="tm-${id}">${MODE_ICONS[id]}${MODES[id].label}</label>
+    </span>`).join('');
+  $('tmodes').querySelectorAll('input').forEach((r) => {
+    r.addEventListener('change', () => selectMode(r.value, false));
+  });
+  $('omodes').innerHTML = ids.map((id) => `
+    <span class="omode">
+      <input type="radio" name="omode" id="om-${id}" value="${id}"${id === modeId ? ' checked' : ''}>
+      <label for="om-${id}">${MODE_ICONS[id]}<strong>${MODES[id].label}</strong><span>${MODES[id].tag}</span></label>
+    </span>`).join('');
+  $('omodes').querySelectorAll('input').forEach((r) => {
+    r.addEventListener('change', () => selectMode(r.value, true));
+  });
+  renderBoards();
+}
+
+function renderBoards() {
+  const boards = MODES[modeId].boards;
+  $('boards').innerHTML = boards.map((b, i) => `
+    <span class="chip">
+      <input type="radio" name="board" id="board${i + 1}" value="${b.value}"${i === 0 ? ' checked' : ''}>
+      <label for="board${i + 1}">${b.label}</label>
+    </span>`).join('');
+}
+
+function selectMode(id, fromOnboard) {
+  if (!MODES[id]) return;
+  saveMode(id);
+  const sync = (name, prefix) => {
+    const el = document.querySelector(`input[name=${name}][value="${id}"]`);
+    if (el) el.checked = true;
+  };
+  sync('tmode'); sync('omode');
+  renderBoards();
+  if (!fromOnboard) {
+    const om = document.querySelector('input[name=omode][value="' + id + '"]');
+    if (om) om.checked = true;
+  }
+}
+
+function maybeShowOnboard() {
+  let seen = null;
+  try { seen = localStorage.getItem(TRANSPORT_KEY); } catch (e) { /* ignore */ }
+  if (seen) return;
+  $('onboard').classList.remove('hidden');
+  const checked = document.querySelector('input[name=omode]:checked') || $('om-eskate');
+  if (checked) checked.focus();
+}
+
+$('onboardGo').addEventListener('click', () => {
+  const picked = document.querySelector('input[name=omode]:checked');
+  saveMode(picked ? picked.value : 'eskate');
+  try { localStorage.setItem(TRANSPORT_KEY, modeId); } catch (e) { /* ignore */ }
+  $('onboard').classList.add('hidden');
+  $('planBtn').focus();
+});
+
 ensureMap();
 renderStops();
 renderPresets();
+renderTransport();
+maybeShowOnboard();
 window.addEventListener('resize', positionRail);
 
 if ('serviceWorker' in navigator) {

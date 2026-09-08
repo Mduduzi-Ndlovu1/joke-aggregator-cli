@@ -91,10 +91,11 @@ f      = max(0, f_roll + f_air + f_grav)      // clamped: no regen credited
 Wh     = (f * distance) / EFF / 3600
 ```
 
-`mass` is rider + kit + 6.8 kg board. `USABLE` discounts nameplate capacity for BMS
+`mass` is rider + kit + the active mode's vehicle mass (6.8 kg e-skate, 22 kg
+e-bike, 14 kg e-scooter, 12 kg EUC). `USABLE` discounts nameplate capacity for BMS
 cutoff and the reality that nobody rides to 0%.
 
-**Regression values** (mass 116.8 kg, drivetrain 80%):
+**Regression values** (e-skate defaults: mass 116.8 kg, drivetrain 80%):
 
 | Case | Expected |
 |---|---|
@@ -214,10 +215,12 @@ handles this; only the UI is missing.
 **Done when:** the user sees 2–3 options with distance, climbing and battery cost
 side by side, and the flattest is not necessarily first if it is far longer.
 
-### Task 3 — Board profiles as data
+### Task 3 — Board profiles as data (partially done)
 
-Currently three hardcoded `<option>` values encoding `Wh|climbLimit|brakeLimit`.
-Move to a JSON file, add derating: a rider near the load limit should see the climb
+`MODES` in `index.html` already holds per-transport-mode physics
+(`cda/crr/eff/usable/speed/vehicleKg`), board presets (`Wh|climbLimit|brakeLimit`)
+and mode-specific braking verdict copy, persisted via `gradient-transport-v1`.
+Still missing: derating — a rider near the load limit should see the climb
 limit reduced, since rated climb figures assume a light rider.
 
 ### Task 4 — Replace geocoding
