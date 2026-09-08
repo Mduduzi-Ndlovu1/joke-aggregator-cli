@@ -10,6 +10,32 @@ pin destination), a reverse-order button, and a saved-places chip row backed by
 `localStorage` (`gradient-presets-v1`) — click the ★ on any stop to save it, click a
 saved chip to fill whichever stop was last focused.
 
+Routes don't have to come from the router — two ways to make one by hand, both feeding
+the same `scoreAndSaveCustomRoute(line, name, source)`:
+
+- **"Draw a route"** (`enterDrawMode()` / `finishDrawing()`) — click points on the map to
+  trace an informal shortcut you can see: a gap in a fence, a path through a park,
+  anything OSRM has no OSM data for and therefore can never return from `route()`.
+- **"Record live"** (`enterRecordMode()` / `finishRecording()`) — builds the line from
+  actual GPS movement via `watchPosition()` instead, the way a fitness app records a
+  track. Points under 5 m apart are dropped (GPS jitter while stationary isn't progress).
+
+Either way the result is nothing but an array of `[lat, lon]` points, and from there it's
+identical to scoring a computed route (`resample` → `elevations` → grade/energy
+integration → `verdictFor` → `applyResult`) — that pipeline doesn't know or care where
+the points came from, so there's no separate scoring logic to maintain. Saved trips flag
+these with `drawn: true` / `recorded: true`; loading one skips repopulating the stop
+search fields, since the `queries` value is just a single custom name, not a from/to
+pair. The two modes are mutually exclusive with each other and with tracking an existing
+route — entering one exits whichever of the others was active.
+
+Planning a route (or finishing a drawn/recorded one) auto-starts live tracking and hides
+the board picker + Plan button behind `#planControls` — the assumption is that planning
+right now means riding right now. `stopTracking()` brings them back. Loading a route
+from **Saved trips** does *not* auto-start tracking (browsing history isn't "about to
+ride"), and a tracking start that never gets a first GPS fix reverts itself (see
+`onTrackError`) rather than leaving the panel stuck with controls hidden.
+
 Status: working prototype. Scores routes correctly. Does **not** yet optimise for
 gradient — see [Limitation 1](#1-routing-is-not-gradient-aware-blocking).
 
@@ -57,8 +83,8 @@ address strings
 
 | Service | Endpoint | Key | Notes |
 |---|---|---|---|
-| Geocoding | `nominatim.openstreetmap.org` | none | 1 req/sec ceiling; usage policy forbids production load. Used at plan time and for stops without a saved coords fix |
-| Autocomplete | `photon.komoot.io` | none | real prefix matching (Nominatim's /search doesn't reliably prefix-match — confirmed by hand: "Tyger" → 5 results, "Tygerb" → 0, full word → 2 again). Debounced 450ms, throttled 500ms between requests |
+| Geocoding | `nominatim.openstreetmap.org` | none | 1 req/sec ceiling; usage policy forbids production load. Used at plan time and for stops without a saved coords fix. Bound via `countrycodes` to the user's detected country (`detectCountry()`), not a rectangle — a box cuts off results near a big country's edges or leaks across a border; `countrycodes` is a proper administrative filter |
+| Autocomplete | `photon.komoot.io` | none | real prefix matching (Nominatim's /search doesn't reliably prefix-match — confirmed by hand: "Tyger" → 5 results, "Tygerb" → 0, full word → 2 again). Debounced 450ms, throttled 500ms between requests. No countrycodes param, so filtered client-side on each result's `properties.countrycode` instead; `lat`/`lon` stays a soft ranking bias, not a hard box |
 | Routing | `routing.openstreetmap.de/routed-bike` | none | primary; no uptime guarantee |
 | Routing fallback | `router.project-osrm.org` | none | driving profile only |
 | Elevation | `api.open-meteo.com/v1/elevation` | none | 30 m DEM, CORS enabled |

@@ -15,12 +15,21 @@
   :root{
     --surface:#131719; --surface-2:#1b2125; --surface-hover:#242c31;
     --border:#2d353b; --ink:#edf2ef; --dim:#9aa8ad;
-    --blue:#d6ff3f; --blue-dark:#bfe633; --blue-tint:rgba(214,255,63,.12);
     --green:#2fbf71; --green-tint:rgba(47,191,113,.14);
     --amber:#ffb224; --amber-tint:rgba(255,178,36,.14);
     --red:#ff5a52; --red-tint:rgba(255,90,82,.14);
     --oxblood:#4a1420; --rust:#b5502e; --ochre:#c98a2c; --moss:#6b8f4e; --sage:#8fae7a;
-    --volt:#d6ff3f; --volt-ink:#10140a;
+    /* Primary accent: white/silver, not a hue — filled surfaces use the
+       gradient (a flat white block over dark surfaces reads harsh/sterile;
+       a soft silver gradient reads considered), text/icons/borders use the
+       flat --accent. Semantic status colours (green/amber/red above) are
+       deliberately untouched — those carry meaning (OK/caution/stop),
+       swapping them to monochrome would remove that signal. */
+    --accent:#FFFFFF; --accent-dim:#9aa7af; --accent-ink:#12161A;
+    --accent-soft:rgba(255,255,255,.12);
+    --accent-gradient:linear-gradient(135deg,#FFFFFF 0%,#DCE3E8 45%,#AEB9C2 100%);
+    --accent-gradient-hover:linear-gradient(135deg,#FFFFFF 0%,#EAEEF1 45%,#C3CBD1 100%);
+    --accent-gradient-soft:linear-gradient(135deg,rgba(255,255,255,.14),rgba(174,185,194,.05));
     --ease-spring:cubic-bezier(.32,.72,0,1); --ease-out:cubic-bezier(.2,.7,.3,1);
     --dur-1:.15s; --dur-2:.3s; --dur-3:.45s;
     --shadow:0 8px 28px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.06) inset;
@@ -30,7 +39,7 @@
   html,body{margin:0;padding:0;height:100%;background:#0c0f10;color:var(--ink);
     font-family:"Roboto",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;}
   body{overflow:hidden;}
-  a{color:var(--volt);}
+  a{color:var(--accent);}
 
   /* full-bleed night map — dark asphalt base so the volt UI + gradient route glow */
   #map{position:fixed;inset:0;z-index:0;background:#0c0f10;}
@@ -41,7 +50,7 @@
     background:radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0,0,0,.42) 100%);}
   .leaflet-control-zoom{box-shadow:var(--shadow) !important;border:1px solid var(--border) !important;border-radius:10px !important;overflow:hidden;}
   .leaflet-control-zoom a{background:var(--surface-2) !important;color:var(--ink) !important;border-color:var(--border) !important;}
-  .leaflet-control-zoom a:hover{background:var(--surface-hover) !important;color:var(--volt) !important;}
+  .leaflet-control-zoom a:hover{background:var(--surface-hover) !important;color:var(--accent) !important;}
   .leaflet-control-attribution{font-size:10px;background:rgba(12,15,16,.85) !important;color:var(--dim) !important;}
   .leaflet-control-attribution a{color:var(--dim) !important;}
   .route-glow{filter:drop-shadow(0 0 6px rgba(0,0,0,.7));}
@@ -52,8 +61,8 @@
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-panel);box-shadow:var(--shadow);
     z-index:10;display:flex;flex-direction:column;overflow:hidden;
   }
-  .panel::before{content:"";display:block;height:3px;background:var(--volt);
-    box-shadow:0 0 12px rgba(214,255,63,.55);}
+  .panel::before{content:"";display:block;height:3px;background:var(--accent-gradient);
+    box-shadow:0 0 12px rgba(255,255,255,.55);}
   .panel-scroll{overflow-y:auto;flex:1;scrollbar-color:var(--border) transparent;}
 
   /* Stop inputs stay pinned to the top of the scrollable panel — otherwise
@@ -63,10 +72,10 @@
     padding-top:2px;box-shadow:0 12px 16px -12px rgba(0,0,0,.6);}
 
   .brand{display:flex;align-items:center;gap:12px;padding:16px 16px 10px;}
-  .brand .dot{width:34px;height:34px;border-radius:10px;background:var(--volt);
+  .brand .dot{width:34px;height:34px;border-radius:10px;background:var(--accent-gradient);
     display:flex;align-items:center;justify-content:center;flex:none;
-    box-shadow:0 0 0 1px rgba(214,255,63,.4), 0 0 16px rgba(214,255,63,.25);}
-  .brand .dot svg{width:19px;height:19px;fill:#10140a;}
+    box-shadow:0 0 0 1px rgba(255,255,255,.4), 0 0 16px rgba(255,255,255,.25);}
+  .brand .dot svg{width:19px;height:19px;fill:#12161A;}
   .brand h1{margin:0;font-size:1.05rem;font-weight:700;color:var(--ink);letter-spacing:.14em;text-transform:uppercase;}
   .brand p{margin:2px 0 0;font-size:.7rem;color:var(--dim);letter-spacing:.02em;text-transform:uppercase;}
 
@@ -80,11 +89,11 @@
   .trips{display:flex;flex-direction:column;gap:6px;padding:2px 0 12px;}
   .trip{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--border);
     border-radius:var(--radius-card);background:var(--surface-2);cursor:pointer;text-align:left;width:100%;}
-  .trip:hover{border-color:var(--volt);}
-  .trip svg{flex:none;width:15px;height:15px;fill:var(--volt);}
+  .trip:hover{border-color:var(--accent);}
+  .trip svg{flex:none;width:15px;height:15px;fill:var(--accent);}
   .trip .tmain{flex:1;min-width:0;}
-  .trip .troute{font-size:.78rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .trip .tmeta{font-size:.66rem;color:var(--dim);margin-top:1px;}
+  .trip .troute{display:block;max-width:100%;font-size:.78rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .trip .tmeta{display:block;max-width:100%;font-size:.66rem;color:var(--dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .trip .del{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
     justify-content:center;color:var(--dim);font-size:14px;}
   .trip .del:hover{background:var(--surface-hover);color:var(--red);}
@@ -96,7 +105,7 @@
   .searchbox{position:relative;padding:4px 0;}
   .searchrow{display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-card);
     margin-bottom:8px;padding:0 4px 0 12px;transition:border-color .15s, background .15s;}
-  .searchrow:focus-within{background:#20272c;border-color:var(--volt);box-shadow:0 0 0 1px var(--volt);}
+  .searchrow:focus-within{background:#20272c;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
   .searchrow .marker{flex:none;width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
   .searchrow input{flex:1;min-width:0;border:none;background:transparent;padding:11px 6px;font-size:.9rem;
     font-family:inherit;color:var(--ink);outline:none;}
@@ -115,31 +124,45 @@
 
   .add-stop{background:none;border:1px dashed var(--border);border-radius:var(--radius-card);cursor:pointer;color:var(--dim);font-size:.78rem;
     font-family:inherit;font-weight:500;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:10px;padding:9px 10px 9px;width:100%;text-align:left;}
-  .add-stop:hover{color:var(--volt);border-color:var(--volt);}
+  .add-stop:hover{color:var(--accent);border-color:var(--accent);}
   .add-stop .plus{flex:none;width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
   .add-stop svg{width:16px;height:16px;fill:currentColor;}
+
+  /* Distinct cards per logical group — spacing scale is 8/10/14px
+     throughout, matching the rest of the panel rather than inventing new
+     values. Sections that can be empty (Saved trips) toggle .hidden on the
+     whole card via JS, not just an inner label, so no empty shell lingers. */
+  .panel-card{background:var(--surface-2);border:1px solid var(--border);
+    border-radius:var(--radius-card);padding:14px;margin:0 0 14px;}
+  .panel-card > .sectionlabel:first-child{margin-top:0;}
+  .panel-card .presets{padding:0;}
+  .panel-card .tmodes{padding:0;}
+
+  .stops-actions{display:flex;gap:8px;align-items:stretch;}
+  .stops-actions .add-stop{flex:1 1 auto;width:auto;}
 
   .swapbtn{position:absolute;right:8px;top:8px;width:36px;height:36px;border-radius:50%;
     border:1px solid var(--border);background:var(--surface-2);cursor:pointer;
     display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);color:var(--dim);}
-  .swapbtn:hover{background:var(--surface-hover);color:var(--volt);border-color:var(--volt);}
+  .swapbtn:hover{background:var(--surface-hover);color:var(--accent);border-color:var(--accent);}
   .swapbtn svg{width:16px;height:16px;fill:currentColor;}
 
   .presets{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 10px;}
   .preset-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 8px 6px 10px;
     border:1px solid var(--border);border-radius:var(--radius-pill);font-size:.78rem;color:var(--ink);
     background:var(--surface-2);cursor:pointer;}
-  .preset-chip:hover{border-color:var(--volt);}
-  .preset-chip svg{width:12px;height:12px;fill:var(--volt);}
+  .preset-chip:hover{border-color:var(--accent);}
+  .preset-chip svg{width:12px;height:12px;fill:var(--accent);}
   .preset-chip .del{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;
     justify-content:center;color:var(--dim);font-size:14px;}
   .preset-chip .del:hover{background:var(--surface-hover);color:var(--red);}
 
-  .locatebtn{background:none;border:none;cursor:pointer;color:var(--volt);font-size:.78rem;
-    font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-family:inherit;display:inline-flex;align-items:center;gap:6px;
-    padding:6px 2px;margin:-2px 0 8px;}
+  .locatebtn{flex:none;background:none;border:1px dashed var(--border);border-radius:var(--radius-card);
+    cursor:pointer;color:var(--accent);font-size:.72rem;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;font-family:inherit;display:inline-flex;align-items:center;gap:6px;
+    padding:9px 12px;white-space:nowrap;}
   .locatebtn svg{width:14px;height:14px;fill:currentColor;}
-  .locatebtn:hover{text-decoration:underline;}
+  .locatebtn:hover{border-color:var(--accent);background:var(--accent-soft);}
 
   .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;}
   .chip{flex:none;}
@@ -147,9 +170,9 @@
   .chip label{display:block;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-pill);
     font-size:.78rem;color:var(--dim);cursor:pointer;white-space:nowrap;user-select:none;background:var(--surface-2);}
   .chip label strong{color:var(--ink);font-weight:700;}
-  .chip input:checked + label{background:var(--volt);border-color:var(--volt);color:var(--volt-ink);font-weight:700;}
-  .chip input:checked + label strong{color:var(--volt-ink);}
-  .chip input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
+  .chip input:checked + label{background:var(--accent-gradient);border-color:var(--accent);color:var(--accent-ink);font-weight:700;}
+  .chip input:checked + label strong{color:var(--accent-ink);}
+  .chip input:focus-visible + label{outline:2px solid var(--accent);outline-offset:2px;}
 
   .tmodes{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 12px;}
   .tmode{position:relative;flex:1 1 0;min-width:70px;}
@@ -158,42 +181,42 @@
     border:1px solid var(--border);border-radius:var(--radius-card);font-size:.68rem;font-weight:700;
     letter-spacing:.04em;text-transform:uppercase;color:var(--dim);cursor:pointer;background:var(--surface-2);}
   .tmode label svg{width:20px;height:20px;fill:currentColor;}
-  .tmode input:checked + label{background:var(--volt);border-color:var(--volt);color:var(--volt-ink);}
-  .tmode input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
+  .tmode input:checked + label{background:var(--accent-gradient);border-color:var(--accent);color:var(--accent-ink);}
+  .tmode input:focus-visible + label{outline:2px solid var(--accent);outline-offset:2px;}
 
   .onboard{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;
     background:rgba(6,8,9,.72);padding:16px;}
   .ocard{width:440px;max-width:100%;max-height:88vh;overflow-y:auto;background:var(--surface);
     border:1px solid var(--border);border-radius:var(--radius-panel);box-shadow:var(--shadow);
     padding:20px 18px 18px;}
-  .ocard::before{content:"";display:block;height:3px;margin:-20px -18px 14px;background:var(--volt);
+  .ocard::before{content:"";display:block;height:3px;margin:-20px -18px 14px;background:var(--accent-gradient);
     border-radius:var(--radius-panel) var(--radius-panel) 0 0;}
-  .osection{font-size:.66rem;color:var(--volt);text-transform:uppercase;letter-spacing:.16em;font-weight:700;margin:0 0 6px;}
+  .osection{font-size:.66rem;color:var(--accent);text-transform:uppercase;letter-spacing:.16em;font-weight:700;margin:0 0 6px;}
   .ocard h2{margin:0;font-size:1.3rem;letter-spacing:.02em;}
   .osub{font-size:.82rem;color:var(--dim);line-height:1.5;margin:8px 0 14px;}
   .omodes{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
-  .ogroup{grid-column:1 / -1;font-size:.66rem;color:var(--volt);text-transform:uppercase;
+  .ogroup{grid-column:1 / -1;font-size:.66rem;color:var(--accent);text-transform:uppercase;
     letter-spacing:.16em;font-weight:700;margin:6px 0 -2px;}
   .ogroup:first-child{margin-top:0;}
   .omode{position:relative;}
   .omode input{position:absolute;opacity:0;pointer-events:none;}
   .omode label{display:block;padding:12px;border:1px solid var(--border);border-radius:var(--radius-card);
     cursor:pointer;background:var(--surface-2);}
-  .omode label svg{width:22px;height:22px;fill:var(--volt);}
+  .omode label svg{width:22px;height:22px;fill:var(--accent);}
   .omode label strong{display:block;font-size:.86rem;margin:6px 0 2px;}
   .omode label span{font-size:.72rem;color:var(--dim);line-height:1.4;display:block;}
-  .omode input:checked + label{border-color:var(--volt);box-shadow:0 0 0 1px var(--volt);background:#20272c;}
-  .omode input:checked + label strong{color:var(--volt);}
-  .omode input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
+  .omode input:checked + label{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:#20272c;}
+  .omode input:checked + label strong{color:var(--accent);}
+  .omode input:focus-visible + label{outline:2px solid var(--accent);outline-offset:2px;}
   @media (min-width:641px){ .onboard{align-items:center;} }
 
   button.go{
-    width:100%;padding:13px;border:none;border-radius:var(--radius-card);background:var(--volt);
-    color:var(--volt-ink);font-weight:700;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;
+    width:100%;padding:13px;border:none;border-radius:var(--radius-card);background:var(--accent-gradient);
+    color:var(--accent-ink);font-weight:700;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;font-family:inherit;
     display:flex;align-items:center;justify-content:center;gap:8px;
   }
   button.go:disabled{opacity:.5;cursor:wait;}
-  button.go:hover:not(:disabled){background:var(--blue-dark);}
+  button.go:hover:not(:disabled){background:var(--accent-gradient-hover);}
   button.go .bolt{width:16px;height:16px;fill:currentColor;flex:none;}
   button.go{transition:transform var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);}
   button.go:active:not(:disabled){transform:scale(.98);}
@@ -201,7 +224,7 @@
   .chip label:active, .tmode label:active, .omode label:active{transform:scale(.97);}
   .preset-chip, .rowbtn, .swapbtn, .add-stop, .locatebtn, .locate-fab{transition:transform var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);}
   .locate-fab:active, .swapbtn:active{transform:scale(.94);}
-  input:focus-visible, select:focus-visible, button:focus-visible{outline:2px solid var(--volt);outline-offset:2px;}
+  input:focus-visible, select:focus-visible, button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
   .status.busy::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:dots 1s steps(4) infinite;}
   @keyframes dots{0%{content:"";}25%{content:".";}50%{content:"..";}75%{content:"...";}}
@@ -246,13 +269,29 @@
   .verdict p{margin:0;font-size:.83rem;line-height:1.45;color:var(--ink);}
 
   .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
-  .stat{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--volt);border-radius:var(--radius-card);padding:10px 11px;}
+  .stat{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius-card);padding:10px 11px;}
   .stat .v{font-size:1.1rem;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
   .stat .k{font-size:.66rem;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
 
-  .sectionlabel{font-size:.68rem;color:var(--volt);text-transform:uppercase;letter-spacing:.14em;
+  .sectionlabel{font-size:.68rem;color:var(--accent);text-transform:uppercase;letter-spacing:.14em;
     font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px;}
   .sectionlabel::after{content:"";flex:1;height:1px;background:var(--border);}
+
+  /* Collapsible section — grid-template-rows 0fr<->1fr animates to/from a
+     dynamic, content-dependent height with no JS scrollHeight measuring.
+     prefers-reduced-motion is already handled globally further up. */
+  .collapse-header{width:100%;display:flex;align-items:center;gap:8px;background:none;
+    border:none;padding:0;margin:0;cursor:pointer;font:inherit;color:inherit;text-align:left;}
+  .collapse-header .sectionlabel{margin:0;flex:1;}
+  .collapse-header .sectionlabel::after{display:none;}
+  .collapse-header .chev{flex:none;width:16px;height:16px;fill:var(--dim);
+    transition:transform var(--dur-2) var(--ease-spring), fill var(--dur-1) var(--ease-out);}
+  .collapse-header[aria-expanded="false"] .chev{transform:rotate(-90deg);}
+  .collapse-header:hover .chev{fill:var(--accent);}
+  .collapse-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows var(--dur-2) var(--ease-spring);}
+  .collapse-body.collapsed{grid-template-rows:0fr;}
+  .collapse-inner{overflow:hidden;min-height:0;}
+  .collapse-inner > .trips{padding:10px 0 0;}
 
   #profile{width:100%;height:130px;display:block;background:#0c0f10;border:1px solid var(--border);border-radius:var(--radius-card);}
 
@@ -269,15 +308,38 @@
   .legal-mini{width:100%;border:none;border-top:1px solid var(--border);background:#101415;color:var(--dim);
     font-size:.72rem;font-family:inherit;padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
     cursor:pointer;text-align:left;}
-  .legal-mini:hover{color:var(--volt);}
+  .legal-mini:hover{color:var(--accent);}
   .legal-mini strong{color:var(--ink);}
 
   .locate-fab{position:fixed;z-index:10;width:42px;height:42px;border-radius:50%;background:var(--surface-2);
     border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--dim);}
   .locate-fab svg{width:20px;height:20px;fill:currentColor;}
-  .locate-fab:hover{color:var(--volt);border-color:var(--volt);}
-  .recenter-fab{color:var(--volt-ink);background:var(--volt);border-color:var(--volt);}
-  .recenter-fab:hover{color:var(--volt-ink);border-color:var(--volt);filter:brightness(1.08);}
+  .locate-fab:hover{color:var(--accent);border-color:var(--accent);}
+  .recenter-fab{color:var(--accent-ink);background:var(--accent-gradient);border-color:var(--accent);}
+  .recenter-fab:hover{color:var(--accent-ink);border-color:var(--accent);filter:brightness(1.08);}
+
+  #drawToggleBtn.active{color:var(--accent-ink);background:var(--accent-gradient);border-color:var(--accent);border-style:solid;}
+
+  .draw-toolbar{position:fixed;z-index:20;left:50%;bottom:16px;transform:translateX(-50%);
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;max-width:calc(100vw - 24px);
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-pill);
+    box-shadow:var(--shadow);padding:8px 8px 8px 16px;}
+  .draw-toolbar #drawCount{font-size:.78rem;font-weight:700;color:var(--accent);white-space:nowrap;}
+  .draw-toolbar .draw-hint{font-size:.76rem;color:var(--dim);white-space:nowrap;}
+  .draw-toolbar .draw-actions{display:flex;gap:6px;}
+  .draw-toolbar button{border:1px solid var(--border);background:var(--surface-2);color:var(--ink);
+    font-size:.76rem;font-weight:600;padding:7px 12px;border-radius:var(--radius-pill);cursor:pointer;
+    font-family:inherit;white-space:nowrap;}
+  .draw-toolbar button:hover{border-color:var(--accent);color:var(--accent);}
+  .draw-toolbar #drawFinishBtn{background:var(--accent-gradient);color:var(--accent-ink);border-color:var(--accent);}
+  .draw-toolbar #drawFinishBtn:hover{filter:brightness(1.08);color:var(--accent-ink);}
+  .draw-toolbar button:disabled{opacity:.4;cursor:not-allowed;}
+  .draw-toolbar button:disabled:hover{border-color:var(--border);color:var(--ink);filter:none;}
+  .rec-dot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:none;
+    animation:rec-pulse 1.2s ease-in-out infinite;}
+  @keyframes rec-pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  #recordToggleBtn.active{color:var(--red);border-color:var(--red);}
+  @media (max-width:640px){ .draw-toolbar .draw-hint{display:none;} }
 
   .ac-list{position:fixed;z-index:40;background:var(--surface);border:1px solid var(--border);
     border-radius:var(--radius-card);box-shadow:var(--shadow);overflow:hidden;max-height:240px;overflow-y:auto;}
@@ -286,26 +348,26 @@
   .ac-item:last-child{border-bottom:none;}
   .ac-item svg{flex:none;width:14px;height:14px;fill:var(--dim);margin-top:2px;}
   .ac-item:hover, .ac-item.active{background:var(--surface-2);}
-  .ac-item.active{color:var(--volt);}
-  .ac-item.active svg{fill:var(--volt);}
+  .ac-item.active{color:var(--accent);}
+  .ac-item.active svg{fill:var(--accent);}
   .ac-empty{padding:10px 11px;font-size:.78rem;color:var(--dim);}
 
   .tracker{margin-bottom:14px;}
-  .trackbtn{width:100%;padding:11px;border-radius:var(--radius-card);border:1px solid var(--volt);
-    background:transparent;color:var(--volt);font-weight:700;font-size:.8rem;letter-spacing:.08em;
+  .trackbtn{width:100%;padding:11px;border-radius:var(--radius-card);border:1px solid var(--accent);
+    background:transparent;color:var(--accent);font-weight:700;font-size:.8rem;letter-spacing:.08em;
     text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;
     gap:8px;font-family:inherit;}
   .trackbtn svg{width:15px;height:15px;fill:currentColor;}
-  .trackbtn:hover{background:rgba(214,255,63,.08);}
-  .trackbtn.active{background:var(--volt);color:var(--volt-ink);}
+  .trackbtn:hover{background:rgba(255,255,255,.08);}
+  .trackbtn.active{background:var(--accent-gradient);color:var(--accent-ink);}
   .trackstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
   .trackstats .stat{padding:8px 9px;}
   .trackstats .v{font-size:.95rem;}
   .trackmsg{font-size:.72rem;color:var(--dim);margin-top:6px;min-height:1.1em;}
   .trackmsg.warn{color:var(--amber);}
 
-  .origin-dot{width:14px;height:14px;border-radius:50%;background:var(--volt);border:2px solid #10140a;
-    box-shadow:0 0 0 2px var(--volt), 0 0 10px rgba(214,255,63,.7);}
+  .origin-dot{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid #12161A;
+    box-shadow:0 0 0 2px var(--accent), 0 0 10px rgba(255,255,255,.7);}
   .dest-pin{width:18px;height:18px;}
 
   @media (max-width:640px){
@@ -320,13 +382,16 @@
     .grabber{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;
       padding:12px 0 8px;border:none;background:transparent;cursor:pointer;touch-action:pan-y;flex:none;}
     .grabber span{width:40px;height:5px;border-radius:999px;background:#3d464c;}
-    .grabber:active span{background:var(--volt);}
+    .grabber:active span{background:var(--accent);}
     .panel-scroll{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
     .locate-fab{right:12px;bottom:calc(164px + env(safe-area-inset-bottom));z-index:9;}
     .recenter-fab{right:12px;bottom:calc(216px + env(safe-area-inset-bottom));z-index:9;}
     .onboard{padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
     .brand{padding:6px 16px 10px;}
     .stats{grid-template-columns:repeat(2,1fr);}
+  }
+  @media (max-width:380px){
+    .stops-actions{flex-direction:column;}
   }
   @media (min-width:641px){
     .locate-fab{left:12px;bottom:12px;}
@@ -358,6 +423,26 @@
 
 <div class="ac-list hidden" id="acList" role="listbox"></div>
 
+<div class="draw-toolbar hidden" id="drawToolbar" role="status" aria-live="polite">
+  <span id="drawCount">0 points</span>
+  <span class="draw-hint">Tap the map to trace your route</span>
+  <span class="draw-actions">
+    <button type="button" id="drawUndoBtn" title="Remove last point">Undo</button>
+    <button type="button" id="drawFinishBtn" title="Finish and score this route">Finish</button>
+    <button type="button" id="drawCancelBtn" title="Cancel drawing">Cancel</button>
+  </span>
+</div>
+
+<div class="draw-toolbar hidden" id="recordToolbar" role="status" aria-live="polite">
+  <span class="rec-dot" aria-hidden="true"></span>
+  <span id="recordCount">0.00 km</span>
+  <span class="draw-hint">Recording your live path — move to trace it</span>
+  <span class="draw-actions">
+    <button type="button" id="recordFinishBtn" title="Finish and score this route">Finish</button>
+    <button type="button" id="recordCancelBtn" title="Cancel recording">Cancel</button>
+  </span>
+</div>
+
 <div class="panel" id="panel">
   <button type="button" class="grabber" id="sheetGrab" aria-expanded="false" aria-controls="panelScroll" aria-label="Expand route panel"><span aria-hidden="true"></span></button>
   <div class="panel-scroll" id="panelScroll">
@@ -382,31 +467,58 @@
           </button>
         </div>
 
-        <button type="button" class="add-stop" id="addStopBtn">
-          <span class="plus"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></span>
-          Add stop
-        </button>
+        <div class="stops-actions">
+          <button type="button" class="add-stop" id="addStopBtn">
+            <span class="plus"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></span>
+            Add stop
+          </button>
+          <button type="button" class="locatebtn" id="locateBtn">
+            <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
+            Use my location
+          </button>
+        </div>
       </div>
 
-      <div class="presets" id="presets"></div>
+      <div class="panel-card">
+        <p class="sectionlabel">Saved places</p>
+        <div class="presets" id="presets"></div>
+      </div>
 
       <div id="offlineHint"></div>
 
-      <p class="sectionlabel" id="tripsLabel" style="display:none;">Saved trips (offline)</p>
-      <div class="trips" id="trips"></div>
+      <div class="panel-card">
+        <button type="button" class="collapse-header" id="tripsToggle" aria-expanded="true" aria-controls="tripsBody">
+          <span class="sectionlabel" id="tripsLabel">Saved trips (offline)</span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+        </button>
+        <div class="collapse-body" id="tripsBody">
+          <div class="collapse-inner">
+            <div class="trips" id="trips"></div>
+          </div>
+        </div>
+      </div>
 
-      <button type="button" class="locatebtn" id="locateBtn">
-        <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9-1h-2.06A7.002 7.002 0 0013 1.06V-1h-2v2.06A7.002 7.002 0 003.06 8H1v2h2.06A7.002 7.002 0 0011 16.94V19h2v-2.06A7.002 7.002 0 0019.94 10H21V8zm-9 8a5 5 0 110-10 5 5 0 010 10z"/></svg>
-        Use my location
-      </button>
+      <div class="panel-card">
+        <p class="sectionlabel">Ride</p>
+        <div class="tmodes" id="tmodes" role="radiogroup" aria-label="Transport mode"></div>
+      </div>
 
-      <p class="sectionlabel">Ride</p>
-      <div class="tmodes" id="tmodes" role="radiogroup" aria-label="Transport mode"></div>
+      <div class="panel-card" id="planControls">
+        <p class="sectionlabel">Board // Powertrain</p>
+        <div class="chips" role="radiogroup" aria-label="Board" id="boards"></div>
 
-      <p class="sectionlabel">Board // Powertrain</p>
-      <div class="chips" role="radiogroup" aria-label="Board" id="boards"></div>
+        <button type="submit" class="go" id="planBtn"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>Plan route</button>
 
-      <button type="submit" class="go" id="planBtn"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5L13 2z"/></svg>Plan route</button>
+        <button type="button" class="add-stop" id="drawToggleBtn">
+          <span class="plus"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span>
+          Draw a route — for shortcuts routing won't find
+        </button>
+
+        <button type="button" class="add-stop" id="recordToggleBtn">
+          <span class="plus"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg></span>
+          Record live — trace it as you ride
+        </button>
+      </div>
       <div class="status" id="status" role="status" aria-live="polite"></div>
     </form>
 
@@ -670,25 +782,35 @@ function band(gradePct) {
 }
 
 /* ---------- geocoding ----------
-   Biased to a box around mapCenter (viewbox + bounded=1) — mapCenter starts
-   at Cape Town as a fallback and is replaced by the user's real location on
-   load if geolocation succeeds (see initMapCenter()). No hardcoded city or
-   country string appended to the query, and no countrycodes filter — both
-   would actively break results for anyone who isn't in Cape Town/South
-   Africa, which defeats the point of making this dynamic. */
-function nominatimViewbox(center, d) {
-  const [lat, lon] = center;
-  return `${lon - d},${lat + d},${lon + d},${lat - d}`; // left,top,right,bottom
+   Bound to the user's whole country, not a small box around them — a
+   rectangular box around mapCenter would cut off results near the edges
+   of a big country, or near a national border pull in a neighbouring one.
+   countrycodes is a proper administrative-boundary filter, not a
+   rectangle: verified by hand that countrycodes=za still resolves "Table
+   Mountain" correctly with no city/box bias at all needed.
+   countryCode defaults to 'za' (matching the CT_CENTER fallback) and is
+   replaced by detectCountry() once the user's real location resolves. */
+let countryCode = 'za';
+async function detectCountry(center) {
+  try {
+    const [lat, lon] = center;
+    // zoom=3 asks Nominatim for country-level detail only — lighter and
+    // faster than a full address reverse-lookup, since that's all this needs.
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&zoom=3`;
+    const resp = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.address && data.address.country_code) countryCode = data.address.country_code.toLowerCase();
+  } catch (e) { /* keep whatever countryCode we already had */ }
 }
-const BBOX_DEG = 0.4; // ~40-45km box, same scale as the original hardcoded Cape Town extent
+
 async function geocode(query) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1` +
-    `&viewbox=${nominatimViewbox(mapCenter, BBOX_DEG)}&bounded=1` +
-    `&q=${encodeURIComponent(query)}`;
+    `&countrycodes=${countryCode}&q=${encodeURIComponent(query)}`;
   const resp = await fetch(url, { headers: { 'Accept-Language': 'en' } });
   if (!resp.ok) throw new Error('Geocoding failed');
   const data = await resp.json();
-  if (!data.length) throw new Error(`Could not find "${query}" nearby`);
+  if (!data.length) throw new Error(`Could not find "${query}"`);
   return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
 }
 
@@ -720,19 +842,22 @@ function photonLabel(p) {
   return parts.filter(Boolean).join(', ');
 }
 
-function photonBBox(center, d) {
-  const [lat, lon] = center;
-  return `${lon - d},${lat - d},${lon + d},${lat + d}`; // west,south,east,north
-}
+// Photon has no countrycodes-style param, so country-wide bounding is a
+// client-side filter instead of a query param — each feature already
+// carries its own properties.countrycode (verified by hand: every
+// "Tygerberg" result came back tagged "ZA"). lat/lon stays as a soft
+// ranking bias within the country (nearer results first), not a hard box —
+// a rectangle would still cut off results near a big country's edges.
 async function autocompleteSearch(query, signal) {
   const [lat, lon] = mapCenter;
-  const url = `https://photon.komoot.io/api/?limit=5&lat=${lat}&lon=${lon}` +
-    `&bbox=${photonBBox(mapCenter, BBOX_DEG)}&q=${encodeURIComponent(query)}`;
+  const url = `https://photon.komoot.io/api/?limit=8&lat=${lat}&lon=${lon}&q=${encodeURIComponent(query)}`;
   const resp = await fetch(url, { signal });
   if (!resp.ok) throw new Error('Autocomplete lookup failed');
   const data = await resp.json();
   return data.features
     .filter((f) => f.properties.name) // unnamed features (bare address points) make poor suggestions
+    .filter((f) => !countryCode || (f.properties.countrycode || '').toLowerCase() === countryCode)
+    .slice(0, 5)
     .map((f) => ({
       label: photonLabel(f.properties),
       lat: f.geometry.coordinates[1],
@@ -1193,13 +1318,17 @@ function addTrip(trip) {
 
 function renderTrips() {
   const list = loadTrips();
-  $('tripsLabel').style.display = list.length ? '' : 'none';
+  $('tripsToggle').closest('.panel-card').classList.toggle('hidden', !list.length);
   const box = $('trips');
   box.innerHTML = list.map((t, i) => `
     <button type="button" class="trip" data-i="${i}">
-      <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>
+      ${t.recorded
+        ? '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="#ff5a52"/></svg>'
+        : t.drawn
+        ? '<svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>'}
       <span class="tmain">
-        <span class="troute">${t.queries.join(' → ')}</span>
+        <span class="troute">${t.recorded ? 'Recorded: ' : t.drawn ? 'Drawn: ' : ''}${t.queries.join(' → ')}</span>
         <span class="tmeta">${MODES[t.modeId] ? MODES[t.modeId].label : t.modeId} · ${t.totalKm.toFixed(1)} km · ${new Date(t.ts).toLocaleString()}</span>
       </span>
       <span class="del" data-i="${i}" title="Delete saved trip">&times;</span>
@@ -1222,12 +1351,43 @@ function renderTrips() {
   });
 }
 
+/* ---------- collapsible sections ----------
+   Generic accordion: a .collapse-header button controls a .collapse-body
+   sized via CSS grid-template-rows (0fr <-> 1fr) — that's what lets it
+   animate to/from a dynamic (unknown, content-dependent) height using only
+   the existing --dur-2/--ease-spring motion tokens, with no JS measuring
+   scrollHeight and no layout thrash. prefers-reduced-motion is already
+   handled globally (see the transition-duration override near the top of
+   the stylesheet), so this doesn't need its own guard. */
+const COLLAPSE_KEY_PREFIX = 'gradient-collapsed-';
+function initCollapsible(toggleId, bodyId, storageKey) {
+  const toggle = $(toggleId);
+  const body = $(bodyId);
+  let collapsed = false;
+  try { collapsed = localStorage.getItem(COLLAPSE_KEY_PREFIX + storageKey) === '1'; } catch (e) { /* default open */ }
+  applyCollapsed(toggle, body, collapsed);
+  toggle.addEventListener('click', () => {
+    collapsed = toggle.getAttribute('aria-expanded') === 'true';
+    applyCollapsed(toggle, body, collapsed);
+    try { localStorage.setItem(COLLAPSE_KEY_PREFIX + storageKey, collapsed ? '1' : '0'); } catch (e) { /* not persisted this time */ }
+  });
+}
+function applyCollapsed(toggle, body, collapsed) {
+  toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  body.classList.toggle('collapsed', collapsed);
+}
+
 // Redraws a saved trip with no network access at all — same rendering path
 // a live plan uses, fed from stored data instead of fresh API responses.
 function loadTrip(t) {
-  stops = t.queries.map((q, i) => ({ value: q, coords: t.coords ? t.coords[i] : null }));
-  activeStopIndex = 0;
-  renderStops();
+  // A drawn or recorded route's `queries` is just its custom name, not
+  // from/to stops — there's nothing sensible to repopulate the search
+  // fields with, so leave them as they are rather than overwriting them.
+  if (!t.drawn && !t.recorded) {
+    stops = t.queries.map((q, i) => ({ value: q, coords: t.coords ? t.coords[i] : null }));
+    activeStopIndex = 0;
+    renderStops();
+  }
   if (MODES[t.modeId]) selectMode(t.modeId, true);
   const boardInput = document.querySelector(`input[name=board][value="${t.boardVal}"]`);
   if (boardInput) boardInput.checked = true;
@@ -1318,10 +1478,15 @@ function setTrackMsg(msg, warn) {
 function startTracking() {
   if (!currentRoute) return;
   if (!navigator.geolocation) { setTrackMsg('Geolocation is not available in this browser.', true); return; }
+  if (drawMode) exitDrawMode();
+  if (recordMode) exitRecordMode();
   tracking.following = true;
   $('trackBtn').classList.add('active');
   $('trackBtnLabel').textContent = 'Stop tracking';
   $('trackStats').classList.remove('hidden');
+  // Riding, not planning — the board picker and Plan button just take up
+  // space you don't need until you stop. stopTracking() brings them back.
+  $('planControls').classList.add('hidden');
   setTrackMsg('Starting GPS tracking — this uses more battery than normal use.');
   tracking.watchId = navigator.geolocation.watchPosition(onTrackUpdate, onTrackError, {
     enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
@@ -1343,11 +1508,18 @@ function stopTracking() {
   if (stats) stats.classList.add('hidden');
   const fab = $('recenterFab');
   if (fab) fab.classList.add('hidden');
+  const controls = $('planControls');
+  if (controls) controls.classList.remove('hidden');
   setTrackMsg('');
 }
 
 function onTrackError(err) {
-  setTrackMsg(geoErrorMessage(err), true);
+  const message = geoErrorMessage(err);
+  // Never got a first fix — this is a failed start, not a live session that
+  // hit a hiccup. Don't leave the panel stuck with planControls hidden and
+  // no live position to show for it.
+  if (!tracking.marker) stopTracking();
+  setTrackMsg(message, true);
 }
 
 function onTrackUpdate(pos) {
@@ -1404,6 +1576,240 @@ $('recenterFab').addEventListener('click', () => {
   if (tracking.lastLatLng) ensureMap().setView(tracking.lastLatLng, Math.max(map.getZoom(), 16));
 });
 
+/* ---------- draw a route manually ----------
+   OSRM only knows about mapped roads — an informal shortcut (a gap in a
+   fence, a path through a park, an unmapped pedestrian cut-through) will
+   never come back from route() no matter how good the routing gets. This
+   lets a rider trace one directly on the map instead. The traced line runs
+   through the exact same scoring pipeline as a computed route (resample,
+   elevation lookup, gradient/energy integration, verdict) — that pipeline
+   only needs an array of [lat, lon] points, it doesn't care where they
+   came from, so there's no separate scoring logic to build or maintain. */
+let drawMode = false;
+let drawPoints = [];
+let drawLayer = null;
+let drawMarkers = [];
+
+function updateDrawCount() {
+  $('drawCount').textContent = `${drawPoints.length} point${drawPoints.length === 1 ? '' : 's'}`;
+  $('drawFinishBtn').disabled = drawPoints.length < 2;
+}
+
+function clearDrawLayer() {
+  if (drawLayer) { drawLayer.remove(); drawLayer = null; }
+  drawMarkers.forEach((mk) => mk.remove());
+  drawMarkers = [];
+}
+
+function redrawDrawLayer() {
+  clearDrawLayer();
+  const m = ensureMap();
+  if (drawPoints.length > 1) {
+    drawLayer = L.polyline(drawPoints, { color: '#FFFFFF', weight: 4, dashArray: '6 8' }).addTo(m);
+  }
+  drawPoints.forEach((p) => {
+    drawMarkers.push(L.circleMarker(p, {
+      radius: 5, color: '#12161A', weight: 1, fillColor: '#FFFFFF', fillOpacity: 1
+    }).addTo(m));
+  });
+  updateDrawCount();
+}
+
+function onDrawClick(e) {
+  drawPoints.push([e.latlng.lat, e.latlng.lng]);
+  redrawDrawLayer();
+}
+
+function enterDrawMode() {
+  if (tracking.watchId != null) stopTracking(); // can't trace a route and be riding one at the same time
+  drawMode = true;
+  drawPoints = [];
+  const m = ensureMap();
+  m.getContainer().style.cursor = 'crosshair';
+  m.on('click', onDrawClick);
+  $('drawToolbar').classList.remove('hidden');
+  $('drawToggleBtn').classList.add('active');
+  updateDrawCount();
+  setStatus('Tap the map to trace your route, then hit Finish.');
+}
+
+function exitDrawMode() {
+  drawMode = false;
+  const m = ensureMap();
+  m.getContainer().style.cursor = '';
+  m.off('click', onDrawClick);
+  $('drawToolbar').classList.add('hidden');
+  $('drawToggleBtn').classList.remove('active');
+  clearDrawLayer();
+  drawPoints = [];
+}
+
+// Shared by finishDrawing() (clicked points) and finishRecording() (live
+// GPS points) — both end up with nothing but an array of [lat, lon], and
+// from there it's identical to scoring a computed route: same elevation
+// lookup, same gradient/energy integration, same verdict, same render.
+async function scoreAndSaveCustomRoute(line, name, source) {
+  const boardVal = document.querySelector('input[name=board]:checked').value;
+  const [capWh, climbLimit, brakeLimit] = boardVal.split('|').map(Number);
+  const phys = MODES[modeId].phys;
+  const usableWh = capWh * phys.usable;
+  const mass = RIDER_KIT_KG + phys.vehicleKg;
+
+  setStatus(`Fetching elevation for your ${source} route…`);
+  try {
+    const pts = resample(line, 50);
+    const elev = await elevations(pts);
+
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + haversine(pts[i - 1], pts[i]));
+
+    let totalWh = 0, totalClimb = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const d = cum[i] - cum[i - 1];
+      const rise = elev[i] - elev[i - 1];
+      const grade = rise / Math.max(1, d);
+      totalWh += segWh(d, grade, mass);
+      if (rise > 0) totalClimb += rise;
+    }
+
+    // Same colour-by-gradient road-hugging render a computed route gets —
+    // routeSegments() doesn't know or care that `line` didn't come from OSRM.
+    const lineCum = cumulative(line);
+    const segs = routeSegments(line, lineCum, pts, elev, cum);
+    const mode = MODES[modeId];
+    const v = verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit, mode);
+
+    applyResult(v, pts, elev, cum, totalWh, totalClimb, usableWh, mode, segs, line, [line[0], line[line.length - 1]]);
+
+    addTrip({
+      ts: Date.now(), modeId, boardVal, queries: [name], coords: [line[0], line[line.length - 1]],
+      line, pts, elev, cum, totalWh, totalClimb, usableWh, climbLimit, brakeLimit,
+      totalKm: cum[cum.length - 1] / 1000, drawn: source === 'drawn', recorded: source === 'recorded'
+    });
+
+    startTracking();
+    setStatus('');
+  } catch (err) {
+    setStatus(err.message || `Could not process the ${source} route — elevation lookup still needs a connection.`, true);
+  }
+}
+
+async function finishDrawing() {
+  if (drawPoints.length < 2) { setStatus('Add at least 2 points before finishing.', true); return; }
+  const name = window.prompt('Name this route:', 'Custom shortcut');
+  if (!name) return; // cancelled — stay in draw mode so nothing is lost
+  const line = drawPoints.slice();
+  exitDrawMode();
+  await scoreAndSaveCustomRoute(line, name, 'drawn');
+}
+
+$('drawToggleBtn').addEventListener('click', () => {
+  if (recordMode) exitRecordMode();
+  if (drawMode) exitDrawMode(); else enterDrawMode();
+});
+$('drawUndoBtn').addEventListener('click', () => {
+  drawPoints.pop();
+  redrawDrawLayer();
+});
+$('drawCancelBtn').addEventListener('click', exitDrawMode);
+$('drawFinishBtn').addEventListener('click', finishDrawing);
+
+/* ---------- record a route live ----------
+   Different from "draw" — this doesn't need you to see a shortcut on the
+   map and click it, it builds the route from your actual GPS movement as
+   you ride it, the way a fitness app records a track. Runs through the
+   same scoreAndSaveCustomRoute() as a drawn route once finished — a
+   [lat, lon] array is a [lat, lon] array regardless of source. */
+let recordMode = false;
+let recordWatchId = null;
+let recordPoints = [];
+let recordLayer = null;
+let recordMarker = null;
+
+function updateRecordStats() {
+  const dist = recordPoints.length > 1
+    ? cumulative(recordPoints)[recordPoints.length - 1]
+    : 0;
+  $('recordCount').textContent = (dist / 1000).toFixed(2) + ' km';
+  $('recordFinishBtn').disabled = recordPoints.length < 2;
+}
+
+function redrawRecordLayer() {
+  if (recordLayer) { recordLayer.remove(); recordLayer = null; }
+  if (recordPoints.length > 1) {
+    recordLayer = L.polyline(recordPoints, { color: '#ff5a52', weight: 4 }).addTo(ensureMap());
+  }
+}
+
+function onRecordUpdate(pos) {
+  const { latitude, longitude } = pos.coords;
+  const latlng = [latitude, longitude];
+  const last = recordPoints[recordPoints.length - 1];
+  // Ignore GPS jitter while stationary (waiting at a light, catching your
+  // breath) — under 5m of "movement" isn't real progress along the route.
+  if (last && haversine(last, latlng) < 5) return;
+
+  recordPoints.push(latlng);
+  redrawRecordLayer();
+  updateRecordStats();
+
+  const m = ensureMap();
+  if (!recordMarker) {
+    recordMarker = L.circleMarker(latlng, {
+      radius: 7, color: '#fff', weight: 2, fillColor: '#ff5a52', fillOpacity: 0.95
+    }).addTo(m);
+    m.setView(latlng, Math.max(m.getZoom(), 16));
+  } else {
+    recordMarker.setLatLng(latlng);
+    m.panTo(latlng);
+  }
+}
+
+function onRecordError(err) {
+  setStatus(geoErrorMessage(err), true);
+}
+
+function enterRecordMode() {
+  if (!navigator.geolocation) { setStatus('Geolocation is not available in this browser.', true); return; }
+  if (tracking.watchId != null) stopTracking(); // can't track an existing route and record a new one at once
+  recordMode = true;
+  recordPoints = [];
+  $('recordToolbar').classList.remove('hidden');
+  $('recordToggleBtn').classList.add('active');
+  updateRecordStats();
+  setStatus('Recording your live path — move to trace the route, then hit Finish.');
+  recordWatchId = navigator.geolocation.watchPosition(onRecordUpdate, onRecordError, {
+    enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
+  });
+}
+
+function exitRecordMode() {
+  recordMode = false;
+  if (recordWatchId != null) navigator.geolocation.clearWatch(recordWatchId);
+  recordWatchId = null;
+  if (recordLayer) { recordLayer.remove(); recordLayer = null; }
+  if (recordMarker) { recordMarker.remove(); recordMarker = null; }
+  $('recordToolbar').classList.add('hidden');
+  $('recordToggleBtn').classList.remove('active');
+  recordPoints = [];
+}
+
+async function finishRecording() {
+  if (recordPoints.length < 2) { setStatus('Keep moving a bit before finishing — need at least 2 points.', true); return; }
+  const name = window.prompt('Name this route:', 'Recorded route');
+  if (!name) return; // cancelled — stay in record mode so nothing is lost
+  const line = recordPoints.slice();
+  exitRecordMode();
+  await scoreAndSaveCustomRoute(line, name, 'recorded');
+}
+
+$('recordToggleBtn').addEventListener('click', () => {
+  if (drawMode) exitDrawMode();
+  if (recordMode) exitRecordMode(); else enterRecordMode();
+});
+$('recordCancelBtn').addEventListener('click', exitRecordMode);
+$('recordFinishBtn').addEventListener('click', finishRecording);
+
 // Merge consecutive same-colour segments into one polyline each — the
 // underlying points still trace every vertex of the full-resolution route,
 // so the line hugs the road exactly, but we don't create one DOM element
@@ -1425,16 +1831,16 @@ function mergePolylines(segs) {
 
 function stopMapIcon(i, n) {
   if (i === 0) return L.divIcon({
-    className: '', html: '<div style="width:14px;height:14px;border-radius:50%;background:#d6ff3f;border:2px solid #10140a;box-shadow:0 0 0 2px #d6ff3f, 0 0 10px rgba(214,255,63,.7);"></div>',
+    className: '', html: '<div style="width:14px;height:14px;border-radius:50%;background:#FFFFFF;border:2px solid #12161A;box-shadow:0 0 0 2px #FFFFFF, 0 0 10px rgba(255,255,255,.7);"></div>',
     iconSize: [14, 14], iconAnchor: [7, 7]
   });
   if (i === n - 1) return L.divIcon({
     className: '',
-    html: '<svg width="26" height="26" viewBox="0 0 24 24"><path fill="#ff5a52" stroke="#10140a" stroke-width="1" d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.62 6.5 12 7.09 12.56a.55.55 0 00.82 0C13 21.5 19.5 15.12 19.5 9.5 19.5 5.36 16.14 2 12 2zm0 10.25A2.75 2.75 0 1112 6.75a2.75 2.75 0 010 5.5z"/></svg>',
+    html: '<svg width="26" height="26" viewBox="0 0 24 24"><path fill="#ff5a52" stroke="#12161A" stroke-width="1" d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.62 6.5 12 7.09 12.56a.55.55 0 00.82 0C13 21.5 19.5 15.12 19.5 9.5 19.5 5.36 16.14 2 12 2zm0 10.25A2.75 2.75 0 1112 6.75a2.75 2.75 0 010 5.5z"/></svg>',
     iconSize: [26, 26], iconAnchor: [13, 24]
   });
   return L.divIcon({
-    className: '', html: `<div style="width:18px;height:18px;border-radius:50%;background:#1b2125;color:#d6ff3f;border:1px solid #d6ff3f;font:700 10px Roboto,sans-serif;display:flex;align-items:center;justify-content:center;">${i}</div>`,
+    className: '', html: `<div style="width:18px;height:18px;border-radius:50%;background:#1b2125;color:#FFFFFF;border:1px solid #FFFFFF;font:700 10px Roboto,sans-serif;display:flex;align-items:center;justify-content:center;">${i}</div>`,
     iconSize: [16, 16], iconAnchor: [8, 8]
   });
 }
@@ -1497,12 +1903,12 @@ function locateInto(idx, panMap) {
         if (locateMarker) locateMarker.remove();
         if (locateAccuracyCircle) locateAccuracyCircle.remove();
         locateMarker = L.circleMarker([latitude, longitude], {
-          radius: 8, color: '#d6ff3f', weight: 2, fillColor: '#d6ff3f', fillOpacity: 0.35
+          radius: 8, color: '#FFFFFF', weight: 2, fillColor: '#FFFFFF', fillOpacity: 0.35
         }).addTo(m);
         // A visible accuracy radius (metres -> map units via a real circle,
         // not the marker's pixel radius) so a bad fix is visible, not just implied.
         locateAccuracyCircle = L.circle([latitude, longitude], {
-          radius: accuracy, color: '#d6ff3f', weight: 1, fillOpacity: 0.06, dashArray: '4 4'
+          radius: accuracy, color: '#FFFFFF', weight: 1, fillOpacity: 0.06, dashArray: '4 4'
         }).addTo(m);
       }
 
@@ -1603,6 +2009,9 @@ $('planForm').addEventListener('submit', async (e) => {
       totalKm: cum[cum.length - 1] / 1000
     });
 
+    // A plan you just made is a plan you're about to ride — jump straight
+    // into live tracking instead of making that a second click.
+    startTracking();
     setStatus('');
   } catch (err) {
     setStatus(err.message || 'Something went wrong.', true);
@@ -1746,8 +2155,9 @@ function initMapCenter() {
     (pos) => {
       mapCenter = [pos.coords.latitude, pos.coords.longitude];
       if (map) map.setView(mapCenter, 13);
+      detectCountry(mapCenter); // countryCode defaults to 'za' until this resolves
     },
-    () => { /* keep the Cape Town default */ },
+    () => { /* keep the Cape Town default (and its matching 'za' countryCode) */ },
     { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 }
   );
 }
@@ -1757,6 +2167,7 @@ initMapCenter();
 renderStops();
 renderPresets();
 renderTrips();
+initCollapsible('tripsToggle', 'tripsBody', 'trips');
 renderTransport();
 maybeShowOnboard();
 applyLegal();
