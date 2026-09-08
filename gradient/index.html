@@ -120,8 +120,8 @@
   .chip input:checked + label strong{color:var(--volt-ink);}
   .chip input:focus-visible + label{outline:2px solid var(--volt);outline-offset:2px;}
 
-  .tmodes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:2px 0 12px;}
-  .tmode{position:relative;}
+  .tmodes{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 12px;}
+  .tmode{position:relative;flex:1 1 0;min-width:70px;}
   .tmode input{position:absolute;opacity:0;pointer-events:none;}
   .tmode label{display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;
     border:1px solid var(--border);border-radius:var(--radius-card);font-size:.68rem;font-weight:700;
@@ -141,6 +141,9 @@
   .ocard h2{margin:0;font-size:1.3rem;letter-spacing:.02em;}
   .osub{font-size:.82rem;color:var(--dim);line-height:1.5;margin:8px 0 14px;}
   .omodes{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+  .ogroup{grid-column:1 / -1;font-size:.66rem;color:var(--volt);text-transform:uppercase;
+    letter-spacing:.16em;font-weight:700;margin:6px 0 -2px;}
+  .ogroup:first-child{margin-top:0;}
   .omode{position:relative;}
   .omode input{position:absolute;opacity:0;pointer-events:none;}
   .omode label{display:block;padding:12px;border:1px solid var(--border);border-radius:var(--radius-card);
@@ -289,8 +292,8 @@
       <div class="stats">
         <div class="stat"><div class="v" id="statDist">—</div><div class="k">Distance</div></div>
         <div class="stat"><div class="v" id="statClimb">—</div><div class="k">Total climb</div></div>
-        <div class="stat"><div class="v" id="statWh">—</div><div class="k">Energy used</div></div>
-        <div class="stat"><div class="v" id="statPct">—</div><div class="k">Of usable battery</div></div>
+        <div class="stat"><div class="v" id="statWh">—</div><div class="k" id="statWhK">Energy used</div></div>
+        <div class="stat"><div class="v" id="statPct">—</div><div class="k" id="statPctK">Of usable battery</div></div>
       </div>
 
       <p class="sectionlabel">Terrain profile</p>
@@ -334,6 +337,8 @@ const CT_CENTER = [-33.9249, 18.4241];
 const MODES = {
   eskate: {
     label: 'E-skate', tag: 'Boards that grind uphill, brakes that fear downhill',
+    group: 'electric', unit: 'board',
+    climbNote: 'Expect the motors to labour, speed to drop sharply, and range to run worse than estimated on that stretch.',
     phys: { cda: 0.65, crr: 0.02, eff: 0.80, usable: 0.87, speed: 22, vehicleKg: 6.8 },
     boards: [
       { label: 'Journ-E Phantom · 336 Wh', value: '336|30|12' },
@@ -344,6 +349,8 @@ const MODES = {
   },
   ebike: {
     label: 'E-bike', tag: 'Gears climb, hydraulic discs stop',
+    group: 'electric', unit: 'bike',
+    climbNote: 'Expect to drop to the granny gear and grind — speed will fall off and the battery will drain faster than estimated there.',
     phys: { cda: 0.95, crr: 0.008, eff: 0.85, usable: 0.90, speed: 25, vehicleKg: 22 },
     boards: [
       { label: 'City commuter · 500 Wh', value: '500|25|22' },
@@ -354,6 +361,8 @@ const MODES = {
   },
   scooter: {
     label: 'E-scooter', tag: 'Small wheels, short braking margin',
+    group: 'electric', unit: 'scooter',
+    climbNote: 'Expect the motors to bog down and speed to collapse on that pitch — small wheels stall fast on steep grades.',
     phys: { cda: 0.80, crr: 0.012, eff: 0.82, usable: 0.88, speed: 22, vehicleKg: 14 },
     boards: [
       { label: 'Commuter · 350 Wh', value: '350|18|12' },
@@ -364,6 +373,8 @@ const MODES = {
   },
   euc: {
     label: 'EUC / Onewheel', tag: 'Climbs anything, nosedives downhill',
+    group: 'electric', unit: 'wheel',
+    climbNote: 'Expect tilt-back and beeping alarms on that pitch — the wheel will be at its torque limit.',
     phys: { cda: 0.70, crr: 0.015, eff: 0.85, usable: 0.88, speed: 20, vehicleKg: 12 },
     boards: [
       { label: 'Onewheel-class · 500 Wh', value: '500|25|10' },
@@ -371,6 +382,46 @@ const MODES = {
       { label: 'EUC long-range · 1500 Wh', value: '1500|30|12' },
     ],
     brakeNote: "Self-balancing wheels climb hard but overspeed downhill — past this grade you risk pedal tilt-back or cutout. Do not ride it.",
+  },
+  /* Human-powered modes: same energy integration, but the motor is you.
+     Muscular efficiency (~24%) replaces drivetrain efficiency, so Wh here is
+     metabolic energy; the UI shows it in kcal. The budget is a comfortable
+     day's output, fully available (usable 1.0) — no BMS cutoff on legs. */
+  push: {
+    label: 'Push skate', tag: 'Your legs are the motor, your shoe is the brake',
+    group: 'human', unit: 'board', human: true,
+    climbNote: "You won't be pushing up that — expect to walk the board up on foot.",
+    phys: { cda: 0.65, crr: 0.02, eff: 0.24, usable: 1.0, speed: 12, vehicleKg: 4 },
+    boards: [
+      { label: 'Longboard 38" · push', value: '1200|8|12' },
+      { label: 'Double-drop LDP · push', value: '1200|7|12' },
+      { label: 'Cruiser 30" · push', value: '1200|6|10' },
+    ],
+    brakeNote: "Footbraking has a hard limit — past this grade expect the shoe to smoke and the speed to keep building. Walk it.",
+  },
+  bike: {
+    label: 'Pedal bike', tag: 'Gears, lungs and lunch',
+    group: 'human', unit: 'bike', human: true,
+    climbNote: 'Expect to be out of the saddle — or off it, pushing — on that pitch.',
+    phys: { cda: 0.95, crr: 0.006, eff: 0.24, usable: 1.0, speed: 20, vehicleKg: 12 },
+    boards: [
+      { label: 'Road bike · 2×12', value: '1500|25|25' },
+      { label: 'Hardtail MTB · 1×12', value: '1500|30|30' },
+      { label: 'City 3-speed · coaster', value: '1500|15|20' },
+    ],
+    brakeNote: "Past this grade even good rim or disc brakes cook on a long descent — plan stops to let them cool or reroute.",
+  },
+  kick: {
+    label: 'Kick scooter', tag: 'Kick, coast, repeat',
+    group: 'human', unit: 'scooter', human: true,
+    climbNote: "You won't be scooting up that — expect to walk it.",
+    phys: { cda: 0.80, crr: 0.01, eff: 0.24, usable: 1.0, speed: 12, vehicleKg: 5 },
+    boards: [
+      { label: 'Adult big-wheel · 200 mm', value: '900|7|10' },
+      { label: 'Standard · 145 mm', value: '900|5|8' },
+      { label: 'Dirt scoot · 2×26"', value: '900|6|10' },
+    ],
+    brakeNote: "A heel brake on tiny wheels can only do so much — past this grade you'll be running it out or bailing. Walk it.",
   },
 };
 const TRANSPORT_KEY = 'gradient-transport-v1';
@@ -579,39 +630,46 @@ function verdictFor(segs, totalWh, usableWh, climbLimit, brakeLimit, mode) {
   const m = mode || MODES[modeId];
   const worstDescent = Math.min(0, ...segs.map((s) => s.grade));
   const worstClimb = Math.max(0, ...segs.map((s) => s.grade));
+  const kcal = (wh) => (wh * 0.86).toFixed(0);
 
   if (Math.abs(worstDescent) >= brakeLimit) {
     return {
       level: 'stop',
       badge: 'Stop',
-      text: `This route drops at up to ${Math.abs(worstDescent).toFixed(0)}%, past this ${m.label}'s ${brakeLimit}% braking limit. ${m.brakeNote}`
+      text: `This route drops at up to ${Math.abs(worstDescent).toFixed(0)}%, past this ${m.unit}'s ${brakeLimit}% braking limit. ${m.brakeNote}`
     };
   }
   if (totalWh > usableWh) {
     return {
       level: 'stop',
       badge: 'Stop',
-      text: `Estimated energy use (${totalWh.toFixed(0)} Wh) exceeds this board's usable capacity (${usableWh.toFixed(0)} Wh). You will not make this distance on one charge.`
+      text: m.human
+        ? `Estimated effort (${kcal(totalWh)} kcal) is beyond a comfortable day's output (${kcal(usableWh)} kcal). Shorten the route or plan a proper food stop.`
+        : `Estimated energy use (${totalWh.toFixed(0)} Wh) exceeds this ${m.unit}'s usable capacity (${usableWh.toFixed(0)} Wh). You will not make this distance on one charge.`
     };
   }
   if (worstClimb >= climbLimit) {
     return {
       level: 'caution',
       badge: 'Caution',
-      text: `Peak climb of ${worstClimb.toFixed(0)}% is at or beyond this board's rated climb limit (${climbLimit}%). Expect the motors to labour, speed to drop sharply, and range to run worse than estimated on that stretch.`
+      text: `Peak climb of ${worstClimb.toFixed(0)}% is at or beyond this ${m.unit}'s rated climb limit (${climbLimit}%). ${m.climbNote}`
     };
   }
   if (totalWh > usableWh * 0.7) {
     return {
       level: 'caution',
       badge: 'Caution',
-      text: `This route uses ${(totalWh / usableWh * 100).toFixed(0)}% of usable battery one way. Fine for a single leg, tight for a round trip without charging in between.`
+      text: m.human
+        ? `This route burns ${(totalWh / usableWh * 100).toFixed(0)}% of a comfortable day's effort one way. Fine as a single leg, heavy as a round trip.`
+        : `This route uses ${(totalWh / usableWh * 100).toFixed(0)}% of usable battery one way. Fine for a single leg, tight for a round trip without charging in between.`
     };
   }
   return {
     level: 'ok',
     badge: 'OK',
-    text: `Comfortably within range and within this board's climb and braking limits — ${totalWh.toFixed(0)} Wh, ${(totalWh / usableWh * 100).toFixed(0)}% of usable battery.`
+    text: m.human
+      ? `Comfortably within a day's effort and within this ${m.unit}'s climb and braking limits — ${kcal(totalWh)} kcal, ${(totalWh / usableWh * 100).toFixed(0)}% of the day's budget.`
+      : `Comfortably within range and within this ${m.unit}'s climb and braking limits — ${totalWh.toFixed(0)} Wh, ${(totalWh / usableWh * 100).toFixed(0)}% of usable battery.`
   };
 }
 
@@ -916,7 +974,15 @@ $('planForm').addEventListener('submit', async (e) => {
 
     $('statDist').textContent = (cum[cum.length - 1] / 1000).toFixed(1) + ' km';
     $('statClimb').textContent = totalClimb.toFixed(0) + ' m';
-    $('statWh').textContent = totalWh.toFixed(0) + ' Wh';
+    if (MODES[modeId].human) {
+      $('statWh').textContent = (totalWh * 0.86).toFixed(0) + ' kcal';
+      $('statWhK').textContent = 'Effort';
+      $('statPctK').textContent = "Of day's budget";
+    } else {
+      $('statWh').textContent = totalWh.toFixed(0) + ' Wh';
+      $('statWhK').textContent = 'Energy used';
+      $('statPctK').textContent = 'Of usable battery';
+    }
     $('statPct').textContent = (totalWh / usableWh * 100).toFixed(0) + '%';
 
     $('profile').innerHTML = profileSVG(pts, elev, cum);
@@ -937,23 +1003,27 @@ const MODE_ICONS = {
   ebike: '<svg viewBox="0 0 24 24"><path d="M5.5 17.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm13 0a3.5 3.5 0 100 7 3.5 3.5 0 000-7zM5 10h4l2.5 6H9.8L8 12H6v9H4v-9c0-1.1.9-2 2-2zm11-4h-3v2h3v4l5 7v-2.4l-3.7-5.1V8H18V6z"/></svg>',
   scooter: '<svg viewBox="0 0 24 24"><path d="M12 2v8.5L6.5 20H4l6-9.5V4H8V2h4zm3 0v2h4.5l2 6H19l-1.6-4.5H15V14h6v-2.3l2.3 5.3H4v2h20v-2h-2.6L19 10V4h-4V2h-3zM7 20a2 2 0 100 4 2 2 0 000-4z"/></svg>',
   euc: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm0 3a6 6 0 110 12 6 6 0 010-12zm0 3a3 3 0 100 6 3 3 0 000-6z"/></svg>',
+  push: '<svg viewBox="0 0 24 24"><path d="M2 15.5h18v2H2zM5 17.5a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zm14 0a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zM12 2c-1 3.5-2.5 6-4.5 8.5l1.7 1.5C10.7 10.2 11.8 8 12.6 5l3.9 7H19l-4.5-8.5c-.8-1-1.7-1.5-2.5-1.5z"/></svg>',
+  bike: '<svg viewBox="0 0 24 24"><path d="M5.5 16.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7zm13 0a3.5 3.5 0 100 7 3.5 3.5 0 000-7zM12 4a1 1 0 011 1v3.6l3.5 5.9h-2.2L11.5 10H8.7l1.9 4.5H8.4L5.5 9.6 7.2 8.4l1.6 2.7 1-2.7V5a1 1 0 011-1h1.2zM14.5 2v2H17v2h-2.5v2h-2V6H10V4h2.5V2h2z"/></svg>',
+  kick: '<svg viewBox="0 0 24 24"><path d="M13 2v3h5l3 9h-2.1l-2.4-7H13v13h4v2H5v-2h6V4H8V2h5zm-6 16a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/></svg>',
 };
 
 function renderTransport() {
   const ids = Object.keys(MODES);
-  $('tmodes').innerHTML = ids.map((id) => `
-    <span class="tmode">
-      <input type="radio" name="tmode" id="tm-${id}" value="${id}"${id === modeId ? ' checked' : ''}>
-      <label for="tm-${id}">${MODE_ICONS[id]}${MODES[id].label}</label>
-    </span>`).join('');
+  const card = (name, prefix) => (id) => `
+    <span class="${prefix === 'tm' ? 'tmode' : 'omode'}">
+      <input type="radio" name="${name}" id="${prefix}-${id}" value="${id}"${id === modeId ? ' checked' : ''}>
+      <label for="${prefix}-${id}">${MODE_ICONS[id]}${prefix === 'tm'
+        ? MODES[id].label.split(' ')[0]
+        : `<strong>${MODES[id].label}</strong><span>${MODES[id].tag}</span>`}</label>
+    </span>`;
+  $('tmodes').innerHTML = ids.map(card('tmode', 'tm')).join('');
+  const group = (g, title) => `<p class="ogroup">${title}</p>` + ids
+    .filter((id) => MODES[id].group === g).map(card('omode', 'om')).join('');
+  $('omodes').innerHTML = group('electric', 'Electric') + group('human', 'Human-powered');
   $('tmodes').querySelectorAll('input').forEach((r) => {
     r.addEventListener('change', () => selectMode(r.value, false));
   });
-  $('omodes').innerHTML = ids.map((id) => `
-    <span class="omode">
-      <input type="radio" name="omode" id="om-${id}" value="${id}"${id === modeId ? ' checked' : ''}>
-      <label for="om-${id}">${MODE_ICONS[id]}<strong>${MODES[id].label}</strong><span>${MODES[id].tag}</span></label>
-    </span>`).join('');
   $('omodes').querySelectorAll('input').forEach((r) => {
     r.addEventListener('change', () => selectMode(r.value, true));
   });

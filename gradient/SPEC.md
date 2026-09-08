@@ -105,6 +105,13 @@ cutoff and the reality that nobody rides to 0%.
 
 If a change moves these by more than ~5%, the change is wrong.
 
+**Human-powered modes** (push skate, pedal bike, kick scooter) run the same
+integration with muscular efficiency (~24%) instead of drivetrain efficiency, so
+Wh is metabolic energy and the UI shows kcal (×0.86). Spot values: ~27 kcal/km
+pushing at 12 km/h, ~25 kcal/km pedalling at 20 km/h, ~17 kcal/km kicking at
+12 km/h. The "battery" is a comfortable day's output (fully available, no BMS
+cutoff) and verdict copy switches to food/effort wording.
+
 **The clamp at zero matters.** Descents draw nothing rather than returning energy.
 This is deliberate: the reference board (Journ-E Phantom) publishes only
 "Electronic brake EBS" with no regeneration claim, while a sibling board in the same
